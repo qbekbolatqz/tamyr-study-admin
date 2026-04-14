@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tamyr Admin — Пайдаланушылар</title>
+  <link rel="icon" href="../tamyr-website/logo.png" />
+  <link rel="stylesheet" href="admin.css" />
+</head>
+<body>
+  <div class="admin-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <img src="../tamyr-website/logo.png" alt="Tamyr" />
+        <div class="sidebar-logo-text">Tamyr <span>Admin Panel</span></div>
+      </div>
+      <nav>
+        <a href="dashboard.html" class="nav-link"><span class="icon">📊</span> Басты бет</a>
+        <a href="questions.html" class="nav-link"><span class="icon">❓</span> Сұрақтар</a>
+        <a href="users.html" class="nav-link"><span class="icon">👥</span> Пайдаланушылар</a>
+      </nav>
+      <div class="sidebar-bottom">
+        <button id="logoutBtn" class="logout-btn"><span>🚪</span> Шығу</button>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main-content">
+      <div class="page-header">
+        <h1>Пайдаланушылар</h1>
+        <p id="totalLabel">Жүктелуде...</p>
+      </div>
+
+      <!-- Top 3 podium -->
+      <div class="podium-row" id="podiumRow">
+        <div class="podium-card rank-1">
+          <div class="podium-rank">🥇</div>
+          <div class="podium-name" id="p1name">—</div>
+          <div class="podium-xp" id="p1xp">— XP</div>
+        </div>
+        <div class="podium-card rank-2">
+          <div class="podium-rank">🥈</div>
+          <div class="podium-name" id="p2name">—</div>
+          <div class="podium-xp" id="p2xp">— XP</div>
+        </div>
+        <div class="podium-card rank-3">
+          <div class="podium-rank">🥉</div>
+          <div class="podium-name" id="p3name">—</div>
+          <div class="podium-xp" id="p3xp">— XP</div>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div class="filters-row">
+        <input id="searchInput" class="search-input" type="text"
+               placeholder="🔍 Username бойынша іздеу..." />
+        <select id="sortSelect" class="filter-select">
+          <option value="total_xp">XP бойынша ↓</option>
+          <option value="level">Деңгей бойынша ↓</option>
+          <option value="streak_days">Streak бойынша ↓</option>
+          <option value="created_at">Тіркелу күні ↓</option>
+        </select>
+        <span id="countBadge" class="chip chip-purple" style="margin-left:auto;padding:8px 14px;"></span>
+      </div>
+
+      <!-- Table -->
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Telegram</th>
+              <th>Аты</th>
+              <th>XP</th>
+              <th>Деңгей</th>
+              <th>Streak</th>
+              <th>Quiz саны</th>
+              <th>Тіркелген</th>
+              <th>Ел</th>
+            </tr>
+          </thead>
+          <tbody id="usersBody">
+            <tr class="loading-row">
+              <td colspan="9"><div class="spinner"></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pagination" id="pagination"></div>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="admin.js"></script>
+  <script>
+    const PAGE_SIZE = 20;
+    let currentPage = 1;
+    let totalCount  = 0;
+
+    async function init() {
+      await checkAuth();
+      await Promise.all([loadTopUsers(), loadUsers()]);
+      bindEvents();
+    }
+
+    // ── Top 3 podium ──
+    async function loadTopUsers() {
+      const { data } = await db
+        .from('users')
+        .select('username, first_name, total_xp')
+        .order('total_xp', { ascending: false })
+        .limit(3);
+
+      if (!data) return;
+      const fill = (n, u) => {
+        const name = u?.username ? '@' + u.username : (u?.first_name ?? '—');
+        document.getElementById(`p${n}name`).textContent = name;
+        document.getElementById(`p${n}xp`).textContent   = (u?.total_xp ?? 0).toLocaleString() + ' XP';
+      };
+      fill(1, data[0]); fill(2, data[1]); fill(3, data[2]);
+    }
+
+    // ── Load users ──
+    async function loadUsers() {
+      const search = document.getElementById('searchInput').value.trim();
+      const sort   = document.getElementById('sortSelect').value;
+
+      const from = (currentPage - 1) * PAGE_SIZE;
+      const to   = from + PAGE_SIZE - 1;
+
+      let query = db
+        .from('users')
+        .select('id,telegram_id,username,first_name,last_name,total_xp,level,streak_days,total_quizzes_completed,created_at,country', { count: 'exact' })
+        .range(from, to)
+        .order(sort, { ascending: false });
+
+      if (search) query = query.ilike('username', `%${search}%`);
+
+      const { data, count, error } = await query;
+      if (error) { showToast(error.message, 'error'); return; }
+
+      totalCount = count ?? 0;
+      document.getElementById('totalLabel').textContent =
+        `Барлығы: ${totalCount.toLocaleString()} пайдаланушы`;
+      document.getElementById('countBadge').textContent =
+        `${totalCount.toLocaleString()} пайдаланушы`;
+
+      renderTable(data ?? []);
+      renderPagination();
+    }
+
+    // ── Render ──
+    function renderTable(users) {
+      const tbody = document.getElementById('usersBody');
+
+      if (!users.length) {
+        tbody.innerHTML = `
+          <tr><td colspan="9">
+            <div class="empty-state">
+              <div class="icon">👥</div>
+              <p>Пайдаланушылар табылмады</p>
+            </div>
+          </td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = users.map((u, i) => {
+        const rank = (currentPage - 1) * PAGE_SIZE + i + 1;
+        const name = [u.first_name, u.last_name].filter(Boolean).join(' ');
+        const tg   = u.username ? `<a href="https://t.me/${u.username}" target="_blank"
+                          style="color:var(--purple-l);text-decoration:none;">@${escapeHtml(u.username)}</a>`
+                                : `<span style="color:var(--muted);">—</span>`;
+        const levelBadge = `<span class="chip chip-gold">Lv.${u.level}</span>`;
+        const streakBadge = u.streak_days > 0
+          ? `<span class="chip chip-green">🔥 ${u.streak_days}</span>`
+          : `<span style="color:var(--muted);">0</span>`;
+
+        const flag = u.country ? countryFlag(u.country) : '—';
+
+        return `
+          <tr>
+            <td style="color:var(--muted);font-size:13px;">${rank}</td>
+            <td>${tg}</td>
+            <td class="truncate" style="max-width:140px;" title="${escapeHtml(name)}">${escapeHtml(name) || '—'}</td>
+            <td><strong style="color:var(--gold);">${(u.total_xp ?? 0).toLocaleString()}</strong></td>
+            <td>${levelBadge}</td>
+            <td>${streakBadge}</td>
+            <td style="color:var(--muted);">${u.total_quizzes_completed ?? 0}</td>
+            <td style="color:var(--muted);font-size:13px;">${formatDate(u.created_at)}</td>
+            <td>${flag}</td>
+          </tr>`;
+      }).join('');
+    }
+
+    // ── Pagination ──
+    function renderPagination() {
+      const pages = Math.ceil(totalCount / PAGE_SIZE);
+      const pg    = document.getElementById('pagination');
+      if (pages <= 1) { pg.innerHTML = ''; return; }
+
+      let html = `<button class="page-btn" ${currentPage===1?'disabled':''} onclick="goPage(${currentPage-1})">‹</button>`;
+      let start = Math.max(1, currentPage - 2);
+      let end   = Math.min(pages, start + 4);
+      start     = Math.max(1, end - 4);
+
+      if (start > 1) html += `<button class="page-btn" onclick="goPage(1)">1</button><span style="color:var(--muted)">…</span>`;
+      for (let p = start; p <= end; p++) {
+        html += `<button class="page-btn ${p===currentPage?'active':''}" onclick="goPage(${p})">${p}</button>`;
+      }
+      if (end < pages) html += `<span style="color:var(--muted)">…</span><button class="page-btn" onclick="goPage(${pages})">${pages}</button>`;
+      html += `<button class="page-btn" ${currentPage===pages?'disabled':''} onclick="goPage(${currentPage+1})">›</button>`;
+      pg.innerHTML = html;
+    }
+
+    function goPage(p) {
+      currentPage = p;
+      loadUsers();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // ── Events ──
+    function bindEvents() {
+      let t;
+      document.getElementById('searchInput').addEventListener('input', () => {
+        clearTimeout(t);
+        t = setTimeout(() => { currentPage = 1; loadUsers(); }, 350);
+      });
+      document.getElementById('sortSelect').addEventListener('change', () => {
+        currentPage = 1; loadUsers();
+      });
+    }
+
+    // ── Helpers ──
+    function countryFlag(code) {
+      if (!code || code.length !== 2) return code ?? '—';
+      return code.toUpperCase().replace(/./g, c =>
+        String.fromCodePoint(0x1F1E6 - 65 + c.charCodeAt(0))
+      );
+    }
+    function escapeHtml(str) {
+      return String(str ?? '')
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;');
+    }
+
+    init();
+  </script>
+</body>
+</html>

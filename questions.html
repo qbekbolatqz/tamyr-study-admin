@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tamyr Admin — Сұрақтар</title>
+  <link rel="icon" href="../tamyr-website/logo.png" />
+  <link rel="stylesheet" href="admin.css" />
+</head>
+<body>
+  <div class="admin-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <img src="../tamyr-website/logo.png" alt="Tamyr" />
+        <div class="sidebar-logo-text">Tamyr <span>Admin Panel</span></div>
+      </div>
+      <nav>
+        <a href="dashboard.html" class="nav-link"><span class="icon">📊</span> Басты бет</a>
+        <a href="questions.html" class="nav-link"><span class="icon">❓</span> Сұрақтар</a>
+        <a href="users.html" class="nav-link"><span class="icon">👥</span> Пайдаланушылар</a>
+      </nav>
+      <div class="sidebar-bottom">
+        <button id="logoutBtn" class="logout-btn"><span>🚪</span> Шығу</button>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main-content">
+      <div class="page-header">
+        <h1>Сұрақтар</h1>
+        <p id="totalLabel">Жүктелуде...</p>
+      </div>
+
+      <!-- Filters -->
+      <div class="filters-row">
+        <input id="searchInput" class="search-input" type="text"
+               placeholder="🔍 Сұрақ бойынша іздеу..." />
+        <select id="catFilter" class="filter-select">
+          <option value="">Барлық категориялар</option>
+        </select>
+        <select id="diffFilter" class="filter-select">
+          <option value="">Барлық қиындық</option>
+          <option value="1">★☆☆ Жеңіл</option>
+          <option value="2">★★☆ Орта</option>
+          <option value="3">★★★ Қиын</option>
+        </select>
+        <button id="addBtn" class="btn btn-gold" style="margin-left:auto;">
+          + Жаңа сұрақ қосу
+        </button>
+      </div>
+
+      <!-- Table -->
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:40px;">#</th>
+              <th>Сұрақ мәтіні</th>
+              <th>Категория</th>
+              <th>Қиындық</th>
+              <th style="width:80px;">Жауаптар</th>
+              <th style="width:120px;">Әрекеттер</th>
+            </tr>
+          </thead>
+          <tbody id="questionsBody">
+            <tr class="loading-row">
+              <td colspan="6"><div class="spinner"></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pagination" id="pagination"></div>
+    </main>
+  </div>
+
+  <!-- Add/Edit Modal -->
+  <div class="modal-overlay" id="questionModal">
+    <div class="modal">
+      <h2 id="modalTitle">Сұрақ қосу</h2>
+
+      <div class="form-group">
+        <label>Сұрақ мәтіні (қазақша)</label>
+        <textarea id="qText" class="form-textarea" rows="3"
+                  placeholder="Сұрақты жазыңыз..."></textarea>
+      </div>
+
+      <div class="form-group">
+        <label>Категория</label>
+        <select id="qCategory" class="form-select">
+          <option value="">Категория таңдаңыз</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Қиындық деңгейі</label>
+        <select id="qDifficulty" class="form-select">
+          <option value="1">★☆☆ Жеңіл</option>
+          <option value="2">★★☆ Орта</option>
+          <option value="3">★★★ Қиын</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Жауап нұсқалары (дұрысын белгілеңіз)</label>
+        <div class="answers-grid">
+          <div class="answer-row">
+            <input type="radio" name="correctAnswer" value="0" id="r0" />
+            <input id="opt0" class="form-input" type="text" placeholder="А нұсқасы" />
+          </div>
+          <div class="answer-row">
+            <input type="radio" name="correctAnswer" value="1" id="r1" />
+            <input id="opt1" class="form-input" type="text" placeholder="Б нұсқасы" />
+          </div>
+          <div class="answer-row">
+            <input type="radio" name="correctAnswer" value="2" id="r2" />
+            <input id="opt2" class="form-input" type="text" placeholder="В нұсқасы" />
+          </div>
+          <div class="answer-row">
+            <input type="radio" name="correctAnswer" value="3" id="r3" />
+            <input id="opt3" class="form-input" type="text" placeholder="Г нұсқасы" />
+          </div>
+        </div>
+        <p style="font-size:12px;color:var(--muted);margin-top:8px;">
+          ← Дұрыс жауапты белгілеу үшін radio-ды басыңыз
+        </p>
+      </div>
+
+      <div class="form-group">
+        <label>Түсіндірме (міндетті емес)</label>
+        <textarea id="qExplanation" class="form-textarea" rows="2"
+                  placeholder="Неге осы жауап дұрыс?"></textarea>
+      </div>
+
+      <div class="modal-footer">
+        <button id="cancelBtn" class="btn btn-ghost">Болдырмау</button>
+        <button id="saveBtn" class="btn btn-primary">Сақтау</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirm delete dialog -->
+  <div class="confirm-overlay" id="confirmOverlay">
+    <div class="confirm-box">
+      <h3>Сұрақты жою?</h3>
+      <p>Бұл әрекетті қайтару мүмкін емес.</p>
+      <div class="confirm-btns">
+        <button id="cancelDelete" class="btn btn-ghost">Болдырмау</button>
+        <button id="confirmDelete" class="btn btn-danger">Жою</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="admin.js"></script>
+  <script>
+    const PAGE_SIZE = 20;
+    let currentPage = 1;
+    let totalCount  = 0;
+    let categories  = [];
+    let editingId   = null;
+    let deleteId    = null;
+
+    // ── Init ──
+    async function init() {
+      await checkAuth();
+      await loadCategories();
+      await loadQuestions();
+      bindEvents();
+    }
+
+    // ── Categories ──
+    async function loadCategories() {
+      const { data } = await db.from('categories').select('id,name_kz').order('name_kz');
+      categories = data ?? [];
+
+      const catFilter = document.getElementById('catFilter');
+      const qCat = document.getElementById('qCategory');
+      categories.forEach(c => {
+        catFilter.innerHTML += `<option value="${c.id}">${c.name_kz}</option>`;
+        qCat.innerHTML      += `<option value="${c.id}">${c.name_kz}</option>`;
+      });
+    }
+
+    // ── Load questions ──
+    async function loadQuestions() {
+      const search = document.getElementById('searchInput').value.trim();
+      const cat    = document.getElementById('catFilter').value;
+      const diff   = document.getElementById('diffFilter').value;
+
+      const from = (currentPage - 1) * PAGE_SIZE;
+      const to   = from + PAGE_SIZE - 1;
+
+      let query = db.from('questions')
+        .select('id,question_kz,category_id,difficulty,options,correct_index,created_at', { count: 'exact' })
+        .range(from, to)
+        .order('created_at', { ascending: false });
+
+      if (search)  query = query.ilike('question_kz', `%${search}%`);
+      if (cat)     query = query.eq('category_id', cat);
+      if (diff)    query = query.eq('difficulty', parseInt(diff));
+
+      const { data, count, error } = await query;
+      if (error) { showToast(error.message, 'error'); return; }
+
+      totalCount = count ?? 0;
+      document.getElementById('totalLabel').textContent =
+        `Барлығы: ${totalCount.toLocaleString()} сұрақ`;
+
+      renderTable(data ?? []);
+      renderPagination();
+    }
+
+    // ── Render table ──
+    function renderTable(questions) {
+      const catMap = Object.fromEntries(categories.map(c => [c.id, c.name_kz]));
+      const tbody = document.getElementById('questionsBody');
+
+      if (!questions.length) {
+        tbody.innerHTML = `
+          <tr><td colspan="6">
+            <div class="empty-state">
+              <div class="icon">🔍</div>
+              <p>Сұрақтар табылмады</p>
+            </div>
+          </td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = questions.map((q, i) => {
+        const num = (currentPage - 1) * PAGE_SIZE + i + 1;
+        return `
+          <tr>
+            <td style="color:var(--muted);font-size:13px;">${num}</td>
+            <td class="truncate" title="${escapeHtml(q.question_kz)}">${escapeHtml(q.question_kz)}</td>
+            <td><span class="chip chip-purple">${escapeHtml(catMap[q.category_id] ?? '—')}</span></td>
+            <td><span class="stars">${difficultyStars(q.difficulty)}</span></td>
+            <td style="text-align:center;">${q.options?.length ?? 0}</td>
+            <td>
+              <div class="actions">
+                <button class="btn btn-ghost btn-sm" onclick="openEdit('${q.id}')">✏️</button>
+                <button class="btn btn-danger btn-sm" onclick="openDelete('${q.id}')">🗑️</button>
+              </div>
+            </td>
+          </tr>`;
+      }).join('');
+    }
+
+    // ── Pagination ──
+    function renderPagination() {
+      const pages = Math.ceil(totalCount / PAGE_SIZE);
+      const pg    = document.getElementById('pagination');
+      if (pages <= 1) { pg.innerHTML = ''; return; }
+
+      let html = `<button class="page-btn" ${currentPage===1?'disabled':''} onclick="goPage(${currentPage-1})">‹</button>`;
+
+      // Smart range
+      let start = Math.max(1, currentPage - 2);
+      let end   = Math.min(pages, start + 4);
+      start     = Math.max(1, end - 4);
+
+      if (start > 1) html += `<button class="page-btn" onclick="goPage(1)">1</button><span style="color:var(--muted)">…</span>`;
+      for (let p = start; p <= end; p++) {
+        html += `<button class="page-btn ${p===currentPage?'active':''}" onclick="goPage(${p})">${p}</button>`;
+      }
+      if (end < pages) html += `<span style="color:var(--muted)">…</span><button class="page-btn" onclick="goPage(${pages})">${pages}</button>`;
+
+      html += `<button class="page-btn" ${currentPage===pages?'disabled':''} onclick="goPage(${currentPage+1})">›</button>`;
+      pg.innerHTML = html;
+    }
+
+    function goPage(p) {
+      currentPage = p;
+      loadQuestions();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // ── Modal helpers ──
+    function openModal() {
+      document.getElementById('questionModal').classList.add('open');
+    }
+    function closeModal() {
+      document.getElementById('questionModal').classList.remove('open');
+      editingId = null;
+      clearForm();
+    }
+    function clearForm() {
+      document.getElementById('qText').value = '';
+      document.getElementById('qCategory').value = '';
+      document.getElementById('qDifficulty').value = '1';
+      document.getElementById('qExplanation').value = '';
+      for (let i = 0; i < 4; i++) {
+        document.getElementById(`opt${i}`).value = '';
+      }
+      document.querySelectorAll('input[name="correctAnswer"]').forEach(r => r.checked = false);
+    }
+
+    // ── Open add ──
+    function openAdd() {
+      editingId = null;
+      document.getElementById('modalTitle').textContent = 'Жаңа сұрақ қосу';
+      clearForm();
+      openModal();
+    }
+
+    // ── Open edit ──
+    async function openEdit(id) {
+      const { data: q, error } = await db.from('questions').select('*').eq('id', id).single();
+      if (error || !q) { showToast('Сұрақ табылмады', 'error'); return; }
+
+      editingId = id;
+      document.getElementById('modalTitle').textContent = 'Сұрақты өңдеу';
+      document.getElementById('qText').value = q.question_kz ?? '';
+      document.getElementById('qCategory').value = q.category_id ?? '';
+      document.getElementById('qDifficulty').value = String(q.difficulty);
+      document.getElementById('qExplanation').value = q.explanation_kz ?? '';
+
+      const opts = q.options ?? [];
+      for (let i = 0; i < 4; i++) {
+        document.getElementById(`opt${i}`).value = opts[i] ?? '';
+      }
+      const radio = document.querySelector(`input[name="correctAnswer"][value="${q.correct_index}"]`);
+      if (radio) radio.checked = true;
+
+      openModal();
+    }
+
+    // ── Save ──
+    async function saveQuestion() {
+      const text       = document.getElementById('qText').value.trim();
+      const categoryId = document.getElementById('qCategory').value;
+      const difficulty = parseInt(document.getElementById('qDifficulty').value);
+      const explanation = document.getElementById('qExplanation').value.trim();
+
+      const options = [0,1,2,3].map(i => document.getElementById(`opt${i}`).value.trim());
+      const correctRadio = document.querySelector('input[name="correctAnswer"]:checked');
+
+      if (!text)        { showToast('Сұрақ мәтінін толтырыңыз', 'error'); return; }
+      if (!categoryId)  { showToast('Категория таңдаңыз', 'error'); return; }
+      if (options.some(o => !o)) { showToast('Барлық 4 жауапты толтырыңыз', 'error'); return; }
+      if (!correctRadio) { showToast('Дұрыс жауапты белгілеңіз', 'error'); return; }
+
+      const payload = {
+        question_kz:    text,
+        category_id:    categoryId,
+        difficulty,
+        options,
+        correct_index:  parseInt(correctRadio.value),
+        explanation_kz: explanation || null,
+        points:         difficulty * 10,
+        is_active:      true,
+      };
+
+      const btn = document.getElementById('saveBtn');
+      btn.textContent = 'Сақталуда...';
+      btn.disabled = true;
+
+      let error;
+      if (editingId) {
+        ({ error } = await db.from('questions').update(payload).eq('id', editingId));
+      } else {
+        ({ error } = await db.from('questions').insert(payload));
+      }
+
+      btn.textContent = 'Сақтау';
+      btn.disabled = false;
+
+      if (error) { showToast(error.message, 'error'); return; }
+
+      showToast(editingId ? 'Сұрақ жаңартылды' : 'Сұрақ қосылды');
+      closeModal();
+      loadQuestions();
+    }
+
+    // ── Delete ──
+    function openDelete(id) {
+      deleteId = id;
+      document.getElementById('confirmOverlay').classList.add('open');
+    }
+    function closeConfirm() {
+      deleteId = null;
+      document.getElementById('confirmOverlay').classList.remove('open');
+    }
+    async function doDelete() {
+      if (!deleteId) return;
+      const { error } = await db.from('questions').delete().eq('id', deleteId);
+      closeConfirm();
+      if (error) { showToast(error.message, 'error'); return; }
+      showToast('Сұрақ жойылды');
+      if ((totalCount - 1) < (currentPage - 1) * PAGE_SIZE && currentPage > 1) {
+        currentPage--;
+      }
+      loadQuestions();
+    }
+
+    // ── Events ──
+    function bindEvents() {
+      document.getElementById('addBtn').addEventListener('click', openAdd);
+      document.getElementById('cancelBtn').addEventListener('click', closeModal);
+      document.getElementById('saveBtn').addEventListener('click', saveQuestion);
+      document.getElementById('cancelDelete').addEventListener('click', closeConfirm);
+      document.getElementById('confirmDelete').addEventListener('click', doDelete);
+
+      // Close modal on overlay click
+      document.getElementById('questionModal').addEventListener('click', function(e) {
+        if (e.target === this) closeModal();
+      });
+
+      let searchTimeout;
+      document.getElementById('searchInput').addEventListener('input', () => {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => { currentPage = 1; loadQuestions(); }, 350);
+      });
+      document.getElementById('catFilter').addEventListener('change', () => { currentPage = 1; loadQuestions(); });
+      document.getElementById('diffFilter').addEventListener('change', () => { currentPage = 1; loadQuestions(); });
+    }
+
+    function escapeHtml(str) {
+      return String(str ?? '')
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;');
+    }
+
+    init();
+  </script>
+</body>
+</html>

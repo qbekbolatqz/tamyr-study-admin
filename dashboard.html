@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tamyr Admin — Басты бет</title>
+  <link rel="icon" href="../tamyr-website/logo.png" />
+  <link rel="stylesheet" href="admin.css" />
+</head>
+<body>
+  <div class="admin-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <img src="../tamyr-website/logo.png" alt="Tamyr" />
+        <div class="sidebar-logo-text">
+          Tamyr
+          <span>Admin Panel</span>
+        </div>
+      </div>
+      <nav>
+        <a href="dashboard.html" class="nav-link">
+          <span class="icon">📊</span> Басты бет
+        </a>
+        <a href="questions.html" class="nav-link">
+          <span class="icon">❓</span> Сұрақтар
+        </a>
+        <a href="users.html" class="nav-link">
+          <span class="icon">👥</span> Пайдаланушылар
+        </a>
+      </nav>
+      <div class="sidebar-bottom">
+        <button id="logoutBtn" class="logout-btn">
+          <span>🚪</span> Шығу
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main-content">
+      <div class="page-header">
+        <h1>Басты бет</h1>
+        <p id="welcomeText">Жүктелуде...</p>
+      </div>
+
+      <!-- Stat cards -->
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-icon">❓</div>
+          <div class="stat-label">Жалпы сұрақтар</div>
+          <div class="stat-value" id="statQuestions">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">👥</div>
+          <div class="stat-label">Пайдаланушылар</div>
+          <div class="stat-value" id="statUsers">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">📂</div>
+          <div class="stat-label">Тақырып пакеттер</div>
+          <div class="stat-value" id="statCategories">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🎮</div>
+          <div class="stat-label">Quiz сессиялар</div>
+          <div class="stat-value" id="statSessions">—</div>
+        </div>
+      </div>
+
+      <!-- Charts -->
+      <div class="charts-grid">
+        <div class="chart-card">
+          <h3>Категория бойынша сұрақтар</h3>
+          <canvas id="questionsChart" height="220"></canvas>
+        </div>
+        <div class="chart-card">
+          <h3>Пайдаланушылар тіркелуі (соңғы 30 күн)</h3>
+          <canvas id="usersChart" height="220"></canvas>
+        </div>
+      </div>
+
+      <!-- Recent sessions -->
+      <div class="card">
+        <h3 style="font-size:15px;font-weight:600;margin-bottom:18px;">
+          Соңғы quiz сессиялар
+        </h3>
+        <div class="table-wrap" style="border-radius:10px;">
+          <table>
+            <thead>
+              <tr>
+                <th>Пайдаланушы</th>
+                <th>Категория</th>
+                <th>Дұрыс / Барлығы</th>
+                <th>XP</th>
+                <th>Уақыты</th>
+              </tr>
+            </thead>
+            <tbody id="sessionsBody">
+              <tr class="loading-row">
+                <td colspan="5"><div class="spinner"></div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <script src="admin.js"></script>
+  <script>
+    Chart.defaults.color = 'rgba(245,240,232,0.6)';
+    Chart.defaults.borderColor = 'rgba(255,255,255,0.07)';
+    Chart.defaults.font.family = "'Gilroy','Inter',system-ui,sans-serif";
+
+    async function init() {
+      const session = await checkAuth();
+      if (!session) return;
+
+      document.getElementById('welcomeText').textContent =
+        `Сәлем, ${session.user.email} — ${new Date().toLocaleDateString('kk-KZ')}`;
+
+      await Promise.all([
+        loadStats(),
+        loadCategoryChart(),
+        loadUsersChart(),
+        loadRecentSessions()
+      ]);
+    }
+
+    async function loadStats() {
+      const [q, u, c, s] = await Promise.all([
+        db.from('questions').select('*', { count: 'exact', head: true }),
+        db.from('users').select('*',     { count: 'exact', head: true }),
+        db.from('categories').select('*',{ count: 'exact', head: true }),
+        db.from('quiz_sessions').select('*', { count: 'exact', head: true })
+      ]);
+      document.getElementById('statQuestions').textContent  = q.count?.toLocaleString() ?? '—';
+      document.getElementById('statUsers').textContent      = u.count?.toLocaleString() ?? '—';
+      document.getElementById('statCategories').textContent = c.count?.toLocaleString() ?? '—';
+      document.getElementById('statSessions').textContent   = s.count?.toLocaleString() ?? '—';
+    }
+
+    async function loadCategoryChart() {
+      const { data: cats } = await db
+        .from('categories')
+        .select('id, name_kz, total_questions')
+        .order('total_questions', { ascending: false })
+        .limit(15);
+
+      if (!cats?.length) return;
+
+      const labels = cats.map(c => c.name_kz.length > 12 ? c.name_kz.slice(0, 12) + '…' : c.name_kz);
+      const values = cats.map(c => c.total_questions);
+
+      new Chart(document.getElementById('questionsChart'), {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Сұрақтар',
+            data: values,
+            backgroundColor: 'rgba(107,63,160,0.7)',
+            borderColor: '#6B3FA0',
+            borderWidth: 1,
+            borderRadius: 6,
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { display: false }, ticks: { maxRotation: 45 } },
+            y: { grid: { color: 'rgba(255,255,255,0.06)' }, beginAtZero: true }
+          }
+        }
+      });
+    }
+
+    async function loadUsersChart() {
+      const since = new Date();
+      since.setDate(since.getDate() - 29);
+
+      const { data: users } = await db
+        .from('users')
+        .select('created_at')
+        .gte('created_at', since.toISOString());
+
+      if (!users) return;
+
+      // Group by date
+      const counts = {};
+      for (let i = 29; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        counts[d.toISOString().slice(0, 10)] = 0;
+      }
+      users.forEach(u => {
+        const day = u.created_at.slice(0, 10);
+        if (counts[day] !== undefined) counts[day]++;
+      });
+
+      const labels = Object.keys(counts).map(d => {
+        const [, m, day] = d.split('-');
+        return `${day}.${m}`;
+      });
+
+      new Chart(document.getElementById('usersChart'), {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Тіркелді',
+            data: Object.values(counts),
+            borderColor: '#E8A84C',
+            backgroundColor: 'rgba(232,168,76,0.12)',
+            tension: 0.4,
+            fill: true,
+            pointRadius: 3,
+            pointBackgroundColor: '#E8A84C',
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { display: false }, ticks: { maxTicksLimit: 10 } },
+            y: { grid: { color: 'rgba(255,255,255,0.06)' }, beginAtZero: true, ticks: { stepSize: 1 } }
+          }
+        }
+      });
+    }
+
+    async function loadRecentSessions() {
+      const { data: sessions } = await db
+        .from('quiz_sessions')
+        .select(`
+          id, correct_answers, total_questions, xp_earned, completed_at,
+          users ( username, first_name ),
+          categories ( name_kz )
+        `)
+        .eq('completed', true)
+        .order('completed_at', { ascending: false })
+        .limit(8);
+
+      const tbody = document.getElementById('sessionsBody');
+      if (!sessions?.length) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:30px;">Деректер жоқ</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = sessions.map(s => `
+        <tr>
+          <td>${s.users?.username ? '@' + s.users.username : s.users?.first_name ?? '—'}</td>
+          <td>${s.categories?.name_kz ?? '—'}</td>
+          <td>${s.correct_answers} / ${s.total_questions}</td>
+          <td><span class="chip chip-gold">+${s.xp_earned} XP</span></td>
+          <td style="color:var(--muted);font-size:13px;">${formatDate(s.completed_at)}</td>
+        </tr>
+      `).join('');
+    }
+
+    init();
+  </script>
+</body>
+</html>

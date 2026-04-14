@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tamyr Admin — Кіру</title>
+  <link rel="icon" href="../tamyr-website/logo.png" />
+  <link rel="stylesheet" href="admin.css" />
+</head>
+<body>
+  <div class="login-page">
+    <div class="login-card">
+      <img class="login-logo" src="../tamyr-website/logo.png" alt="Tamyr" />
+      <h1>Tamyr Admin</h1>
+      <p class="subtitle">Басқару панеліне кіру</p>
+
+      <div id="errorMsg" class="error-msg"></div>
+
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input id="email" class="form-input" type="email"
+               placeholder="admin@tamyr.study" autocomplete="email" />
+      </div>
+      <div class="form-group" style="margin-bottom:24px">
+        <label for="password">Құпия сөз</label>
+        <input id="password" class="form-input" type="password"
+               placeholder="••••••••" autocomplete="current-password" />
+      </div>
+
+      <button id="loginBtn" class="btn btn-gold" style="width:100%;justify-content:center;padding:13px;">
+        Кіру
+      </button>
+    </div>
+  </div>
+
+  <!-- Supabase CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="admin.js"></script>
+  <script>
+    // If already logged in — go to dashboard
+    (async () => {
+      const { data: { session } } = await db.auth.getSession();
+      if (session && ADMIN_EMAILS.includes(session.user.email)) {
+        window.location.href = 'dashboard.html';
+      }
+    })();
+
+    const loginBtn = document.getElementById('loginBtn');
+    const errorMsg = document.getElementById('errorMsg');
+
+    function showError(msg) {
+      errorMsg.textContent = msg;
+      errorMsg.classList.add('visible');
+    }
+
+    document.getElementById('password').addEventListener('keydown', e => {
+      if (e.key === 'Enter') loginBtn.click();
+    });
+
+    loginBtn.addEventListener('click', async () => {
+      const email    = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      errorMsg.classList.remove('visible');
+
+      if (!email || !password) {
+        showError('Email мен құпия сөзді толтырыңыз');
+        return;
+      }
+
+      if (!ADMIN_EMAILS.includes(email)) {
+        showError('Бұл email администратор тізімінде жоқ');
+        return;
+      }
+
+      loginBtn.textContent = 'Кіруде...';
+      loginBtn.disabled = true;
+
+      const { data, error } = await db.auth.signInWithPassword({ email, password });
+
+      loginBtn.textContent = 'Кіру';
+      loginBtn.disabled = false;
+
+      if (error) {
+        showError(error.message === 'Invalid login credentials'
+          ? 'Email немесе құпия сөз қате'
+          : error.message);
+        return;
+      }
+
+      window.location.href = 'dashboard.html';
+    });
+  </script>
+</body>
+</html>
