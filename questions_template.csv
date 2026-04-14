@@ -1,0 +1,4 @@
+question_text,option_a,option_b,option_c,option_d,correct_answer,difficulty,category_id
+"Абай Құнанбайұлы қай жылы дүниеге келген?","1840","1845","1850","1860","B","2","REPLACE_WITH_CATEGORY_UUID"
+"Қазақ хандығы қай жылы құрылды?","1465","1480","1500","1520","A","2","REPLACE_WITH_CATEGORY_UUID"
+"Алаш партиясын кім негіздеді?","Абай Құнанбайұлы","Шоқан Уәлиханов","Әлихан Бөкейхан","Сәкен Сейфуллин","C","3","REPLACE_WITH_CATEGORY_UUID"

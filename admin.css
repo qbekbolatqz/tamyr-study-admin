@@ -623,6 +623,23 @@ tbody tr:hover { background: var(--card-h); }
 }
 .error-msg.visible { display: block; }
 
+/* ─── CSV Dropzone ─── */
+.csv-dropzone {
+  border: 2px dashed var(--border);
+  border-radius: 14px;
+  padding: 36px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.csv-dropzone:hover, .csv-dropzone.drag-over {
+  border-color: var(--purple);
+  background: rgba(107,63,160,0.07);
+}
+.csv-drop-icon { font-size: 40px; margin-bottom: 10px; }
+.csv-drop-title { font-size: 15px; font-weight: 600; color: var(--cream); margin-bottom: 4px; }
+.csv-drop-sub   { font-size: 13px; color: var(--muted); }
+
 /* ─── Scrollbar ─── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }

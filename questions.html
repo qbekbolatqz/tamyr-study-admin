@@ -46,7 +46,10 @@
           <option value="2">★★☆ Орта</option>
           <option value="3">★★★ Қиын</option>
         </select>
-        <button id="addBtn" class="btn btn-gold" style="margin-left:auto;">
+        <button id="csvBtn" class="btn btn-primary" style="margin-left:auto;">
+          📥 CSV жүктеу
+        </button>
+        <button id="addBtn" class="btn btn-gold">
           + Жаңа сұрақ қосу
         </button>
       </div>
@@ -152,7 +155,115 @@
     </div>
   </div>
 
+  <!-- CSV Import Modal -->
+  <div class="modal-overlay" id="csvModal">
+    <div class="modal" style="max-width:680px;">
+      <h2>CSV импорт</h2>
+
+      <!-- Step 1: Upload -->
+      <div id="csvStep1">
+        <div class="csv-dropzone" id="csvDropzone">
+          <div class="csv-drop-icon">📄</div>
+          <p class="csv-drop-title">CSV файлын тастаңыз немесе таңдаңыз</p>
+          <p class="csv-drop-sub">Тек .csv форматы қабылданады</p>
+          <input type="file" id="csvFileInput" accept=".csv" style="display:none;" />
+          <button class="btn btn-ghost" style="margin-top:12px;"
+                  onclick="document.getElementById('csvFileInput').click()">
+            Файл таңдау
+          </button>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:12px;margin-top:20px;
+                    padding-top:20px;border-top:1px solid var(--border);">
+          <span style="font-size:13px;color:var(--muted);">Формат үлгісі:</span>
+          <button class="btn btn-ghost btn-sm" id="templateBtn">
+            ⬇️ questions_template.csv жүктеу
+          </button>
+        </div>
+
+        <div style="margin-top:16px;background:rgba(107,63,160,0.1);
+                    border:1px solid rgba(107,63,160,0.25);border-radius:10px;
+                    padding:14px 16px;font-size:12px;color:var(--muted);line-height:1.8;">
+          <strong style="color:var(--purple-l);">Баған тәртібі:</strong><br/>
+          <code style="color:var(--cream);">question_text, option_a, option_b, option_c, option_d, correct_answer, difficulty, category_id</code><br/>
+          <strong style="color:var(--purple-l);">correct_answer:</strong> A, B, C немесе D<br/>
+          <strong style="color:var(--purple-l);">difficulty:</strong> 1 (жеңіл), 2 (орта), 3 (қиын)<br/>
+          <strong style="color:var(--purple-l);">category_id:</strong> UUID форматында
+        </div>
+      </div>
+
+      <!-- Step 2: Preview + validation -->
+      <div id="csvStep2" style="display:none;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+          <div>
+            <span id="csvFileName" style="font-weight:600;color:var(--cream);"></span>
+            <span id="csvRowCount" style="font-size:13px;color:var(--muted);margin-left:10px;"></span>
+          </div>
+          <button class="btn btn-ghost btn-sm" id="csvResetBtn">✕ Өзгерту</button>
+        </div>
+
+        <!-- Validation errors -->
+        <div id="csvErrors" style="display:none;margin-bottom:16px;
+             background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.25);
+             border-radius:10px;padding:14px 16px;max-height:140px;overflow-y:auto;">
+          <p style="font-size:13px;font-weight:600;color:var(--danger);margin-bottom:8px;">
+            ⚠️ Қателер табылды:
+          </p>
+          <ul id="csvErrorList" style="font-size:12px;color:var(--danger);padding-left:16px;line-height:1.9;"></ul>
+        </div>
+
+        <!-- Preview table -->
+        <p style="font-size:12px;color:var(--muted);margin-bottom:8px;">
+          Алғашқы 5 жол (алдын ала қарау):
+        </p>
+        <div style="overflow-x:auto;border-radius:10px;border:1px solid var(--border);margin-bottom:20px;">
+          <table style="font-size:12px;min-width:600px;">
+            <thead>
+              <tr style="background:rgba(107,63,160,0.15);">
+                <th style="padding:10px 12px;">Сұрақ</th>
+                <th style="padding:10px 12px;">А</th>
+                <th style="padding:10px 12px;">Б</th>
+                <th style="padding:10px 12px;">В</th>
+                <th style="padding:10px 12px;">Г</th>
+                <th style="padding:10px 12px;">Дұрыс</th>
+                <th style="padding:10px 12px;">Қиын.</th>
+                <th style="padding:10px 12px;">Күй</th>
+              </tr>
+            </thead>
+            <tbody id="csvPreviewBody"></tbody>
+          </table>
+        </div>
+
+        <!-- Progress bar (hidden until import starts) -->
+        <div id="csvProgressWrap" style="display:none;margin-bottom:20px;">
+          <div style="display:flex;justify-content:space-between;
+                      font-size:12px;color:var(--muted);margin-bottom:6px;">
+            <span>Импорттауда...</span>
+            <span id="csvProgressLabel">0%</span>
+          </div>
+          <div style="background:var(--border);border-radius:6px;height:8px;overflow:hidden;">
+            <div id="csvProgressBar"
+                 style="height:100%;width:0%;background:linear-gradient(90deg,var(--purple),var(--gold));
+                        border-radius:6px;transition:width 0.3s;"></div>
+          </div>
+        </div>
+
+        <!-- Result summary (hidden until done) -->
+        <div id="csvResult" style="display:none;margin-bottom:20px;border-radius:10px;
+             padding:14px 16px;font-size:14px;font-weight:600;"></div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-ghost" id="csvCancelBtn">Жабу</button>
+        <button class="btn btn-gold" id="csvImportBtn" style="display:none;">
+          ✓ Импорттау
+        </button>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5/papaparse.min.js"></script>
   <script src="admin.js"></script>
   <script>
     const PAGE_SIZE = 20;
@@ -422,7 +533,237 @@
         .replace(/"/g,'&quot;');
     }
 
+    // ════════════════════════════════════════════════
+    // CSV IMPORT
+    // ════════════════════════════════════════════════
+    let csvParsedRows   = [];   // all parsed + validated rows
+    let csvValidRows    = [];   // only valid rows ready for insert
+
+    const CORRECT_MAP = { A: 0, B: 1, C: 2, D: 3 };
+    const TEMPLATE_CONTENT = `question_text,option_a,option_b,option_c,option_d,correct_answer,difficulty,category_id
+"Абай Құнанбайұлы қай жылы дүниеге келген?","1840","1845","1850","1860","B","2","REPLACE_WITH_CATEGORY_UUID"
+"Қазақ хандығы қай жылы құрылды?","1465","1480","1500","1520","A","2","REPLACE_WITH_CATEGORY_UUID"
+"Алаш партиясын кім негіздеді?","Абай","Шоқан","Әлихан Бөкейхан","Сәкен","C","3","REPLACE_WITH_CATEGORY_UUID"
+`;
+
+    // ── Open / close CSV modal ──
+    function openCsvModal() {
+      resetCsvModal();
+      document.getElementById('csvModal').classList.add('open');
+    }
+    function closeCsvModal() {
+      document.getElementById('csvModal').classList.remove('open');
+      resetCsvModal();
+    }
+    function resetCsvModal() {
+      csvParsedRows = [];
+      csvValidRows  = [];
+      document.getElementById('csvStep1').style.display = '';
+      document.getElementById('csvStep2').style.display = 'none';
+      document.getElementById('csvImportBtn').style.display = 'none';
+      document.getElementById('csvProgressWrap').style.display = 'none';
+      document.getElementById('csvResult').style.display = 'none';
+      document.getElementById('csvErrors').style.display = 'none';
+      document.getElementById('csvFileInput').value = '';
+      document.getElementById('csvImportBtn').disabled = false;
+      document.getElementById('csvImportBtn').textContent = '✓ Импорттау';
+    }
+
+    // ── Template download ──
+    function downloadTemplate() {
+      const blob = new Blob([TEMPLATE_CONTENT], { type: 'text/csv;charset=utf-8;' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url; a.download = 'questions_template.csv';
+      a.click(); URL.revokeObjectURL(url);
+    }
+
+    // ── File selected ──
+    function handleCsvFile(file) {
+      if (!file || !file.name.endsWith('.csv')) {
+        showToast('Тек .csv файл таңдаңыз', 'error'); return;
+      }
+
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        transformHeader: h => h.trim().toLowerCase().replace(/\s+/g,'_'),
+        complete: results => processParsed(results.data, file.name),
+        error: err => showToast('CSV оқу қатесі: ' + err.message, 'error')
+      });
+    }
+
+    // ── Validate & preview ──
+    function processParsed(rows, filename) {
+      csvParsedRows = rows;
+      const errors  = [];
+      csvValidRows  = [];
+
+      // Build a quick category id set for validation
+      const catIds = new Set(categories.map(c => c.id));
+
+      rows.forEach((row, idx) => {
+        const n = idx + 1;
+        const q      = (row.question_text || '').trim();
+        const optA   = (row.option_a || '').trim();
+        const optB   = (row.option_b || '').trim();
+        const optC   = (row.option_c || '').trim();
+        const optD   = (row.option_d || '').trim();
+        const ans    = (row.correct_answer || '').trim().toUpperCase();
+        const diff   = parseInt(row.difficulty);
+        const catId  = (row.category_id || '').trim();
+
+        const rowErrors = [];
+        if (!q)                             rowErrors.push('сұрақ мәтіні бос');
+        if (!optA||!optB||!optC||!optD)     rowErrors.push('барлық 4 жауап толтырылмаған');
+        if (!CORRECT_MAP.hasOwnProperty(ans)) rowErrors.push(`correct_answer "${ans}" — A/B/C/D болуы керек`);
+        if (![1,2,3].includes(diff))         rowErrors.push(`difficulty "${row.difficulty}" — 1,2,3 болуы керек`);
+        if (!catId)                           rowErrors.push('category_id бос');
+        else if (!catIds.has(catId))          rowErrors.push(`category_id "${catId}" базада жоқ`);
+
+        if (rowErrors.length) {
+          errors.push(`Жол ${n}: ${rowErrors.join('; ')}`);
+        } else {
+          csvValidRows.push({
+            question_kz:   q,
+            options:       [optA, optB, optC, optD],
+            correct_index: CORRECT_MAP[ans],
+            difficulty:    diff,
+            category_id:   catId,
+            points:        diff * 10,
+            is_active:     true,
+          });
+        }
+      });
+
+      // Show step 2
+      document.getElementById('csvStep1').style.display = 'none';
+      document.getElementById('csvStep2').style.display  = '';
+      document.getElementById('csvFileName').textContent  = filename;
+      document.getElementById('csvRowCount').textContent  =
+        `${rows.length} жол, ${csvValidRows.length} жарамды, ${errors.length} қате`;
+
+      // Render errors
+      const errBox  = document.getElementById('csvErrors');
+      const errList = document.getElementById('csvErrorList');
+      if (errors.length) {
+        errList.innerHTML = errors.map(e => `<li>${escapeHtml(e)}</li>`).join('');
+        errBox.style.display = '';
+      } else {
+        errBox.style.display = 'none';
+      }
+
+      // Render preview (first 5 valid source rows)
+      const preview = rows.slice(0, 5);
+      const validSet = new Set(csvValidRows.map(r => r.question_kz));
+      document.getElementById('csvPreviewBody').innerHTML = preview.map(row => {
+        const q   = (row.question_text || '').trim();
+        const ok  = validSet.has(q);
+        const statusCell = ok
+          ? `<td style="color:var(--success);text-align:center;">✓</td>`
+          : `<td style="color:var(--danger);text-align:center;">✗</td>`;
+        return `<tr style="${ok ? '' : 'opacity:0.5;'}">
+          <td class="truncate" style="max-width:160px;padding:8px 12px;"
+              title="${escapeHtml(q)}">${escapeHtml(q)}</td>
+          <td style="padding:8px 12px;">${escapeHtml(row.option_a||'')}</td>
+          <td style="padding:8px 12px;">${escapeHtml(row.option_b||'')}</td>
+          <td style="padding:8px 12px;">${escapeHtml(row.option_c||'')}</td>
+          <td style="padding:8px 12px;">${escapeHtml(row.option_d||'')}</td>
+          <td style="padding:8px 12px;text-align:center;color:var(--gold);">${escapeHtml(row.correct_answer||'')}</td>
+          <td style="padding:8px 12px;text-align:center;">${row.difficulty||''}</td>
+          ${statusCell}
+        </tr>`;
+      }).join('');
+
+      // Show import button only if there are valid rows
+      const importBtn = document.getElementById('csvImportBtn');
+      importBtn.style.display = csvValidRows.length ? '' : 'none';
+    }
+
+    // ── Batch import ──
+    async function doImport() {
+      if (!csvValidRows.length) return;
+
+      const btn = document.getElementById('csvImportBtn');
+      btn.disabled = true;
+      btn.textContent = 'Импорттауда...';
+
+      const progressWrap = document.getElementById('csvProgressWrap');
+      const progressBar  = document.getElementById('csvProgressBar');
+      const progressLbl  = document.getElementById('csvProgressLabel');
+      progressWrap.style.display = '';
+
+      const BATCH = 50;
+      let inserted = 0;
+      let failed   = 0;
+
+      for (let i = 0; i < csvValidRows.length; i += BATCH) {
+        const chunk = csvValidRows.slice(i, i + BATCH);
+        const { error } = await db.from('questions').insert(chunk);
+        if (error) {
+          failed += chunk.length;
+        } else {
+          inserted += chunk.length;
+        }
+        const pct = Math.round(((i + chunk.length) / csvValidRows.length) * 100);
+        progressBar.style.width = pct + '%';
+        progressLbl.textContent  = pct + '%';
+      }
+
+      // Show result
+      const result = document.getElementById('csvResult');
+      result.style.display = '';
+      if (failed === 0) {
+        result.style.background = 'rgba(74,222,128,0.1)';
+        result.style.border     = '1px solid rgba(74,222,128,0.3)';
+        result.style.color      = 'var(--success)';
+        result.textContent      = `✓ ${inserted} сұрақ сәтті қосылды!`;
+      } else {
+        result.style.background = 'rgba(232,168,76,0.1)';
+        result.style.border     = '1px solid rgba(232,168,76,0.3)';
+        result.style.color      = 'var(--gold)';
+        result.textContent      = `${inserted} сұрақ қосылды, ${failed} қате болды`;
+      }
+
+      btn.textContent = '✓ Дайын';
+      document.getElementById('csvCancelBtn').textContent = 'Жабу';
+
+      if (inserted > 0) loadQuestions();
+    }
+
+    // ── Bind CSV events ──
+    function bindCsvEvents() {
+      document.getElementById('csvBtn').addEventListener('click', openCsvModal);
+      document.getElementById('csvCancelBtn').addEventListener('click', closeCsvModal);
+      document.getElementById('csvImportBtn').addEventListener('click', doImport);
+      document.getElementById('templateBtn').addEventListener('click', downloadTemplate);
+      document.getElementById('csvResetBtn').addEventListener('click', resetCsvModal);
+
+      // File input change
+      document.getElementById('csvFileInput').addEventListener('change', e => {
+        if (e.target.files[0]) handleCsvFile(e.target.files[0]);
+      });
+
+      // Drag & drop
+      const dz = document.getElementById('csvDropzone');
+      dz.addEventListener('click', () => document.getElementById('csvFileInput').click());
+      dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+      dz.addEventListener('dragleave', ()  => dz.classList.remove('drag-over'));
+      dz.addEventListener('drop', e => {
+        e.preventDefault();
+        dz.classList.remove('drag-over');
+        const file = e.dataTransfer.files[0];
+        if (file) handleCsvFile(file);
+      });
+
+      // Close on overlay click
+      document.getElementById('csvModal').addEventListener('click', function(e) {
+        if (e.target === this) closeCsvModal();
+      });
+    }
+
     init();
+    bindCsvEvents();
   </script>
 </body>
 </html>
