@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tamyr Admin — Хабарландыру</title>
+  <link rel="icon" type="image/png" href="./tamyr_study_logo.png">
+  <link rel="apple-touch-icon" href="./tamyr_study_logo.png">
+  <link rel="stylesheet" href="admin.css" />
+  <style>
+    /* ── Composer grid ── */
+    .composer-grid {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 20px;
+      margin-bottom: 28px;
+      align-items: start;
+    }
+
+    /* ── Message type tabs ── */
+    .msg-tabs {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    .msg-tab {
+      padding: 8px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .msg-tab:hover { border-color: var(--purple); color: var(--cream); }
+    .msg-tab.active {
+      background: rgba(107,63,160,0.3);
+      border-color: var(--purple);
+      color: var(--cream);
+    }
+
+    /* ── Character counter ── */
+    .char-counter {
+      text-align: right;
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 6px;
+      transition: color 0.2s;
+    }
+    .char-counter.warn  { color: var(--gold); }
+    .char-counter.limit { color: var(--danger); }
+
+    /* ── Template buttons ── */
+    .template-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+    .template-btn {
+      padding: 6px 12px;
+      border-radius: 8px;
+      border: 1px solid rgba(107,63,160,0.3);
+      background: rgba(107,63,160,0.1);
+      color: var(--purple-l);
+      font-size: 12px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .template-btn:hover {
+      background: rgba(107,63,160,0.25);
+      border-color: var(--purple);
+    }
+
+    /* ── Schedule row ── */
+    .schedule-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+      padding: 14px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+    .schedule-radio {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .schedule-radio input[type="radio"] { accent-color: var(--gold); transform: scale(1.15); }
+    input[type="datetime-local"] {
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--cream);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input[type="datetime-local"]:focus { border-color: var(--purple); }
+    input[type="datetime-local"]:disabled { opacity: 0.4; }
+
+    /* ── Recipient count badge ── */
+    .recipient-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      border-radius: 12px;
+      background: rgba(232,168,76,0.1);
+      border: 1px solid rgba(232,168,76,0.25);
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--gold);
+      margin-bottom: 16px;
+      width: 100%;
+      justify-content: center;
+    }
+
+    /* ── Telegram preview ── */
+    .tg-preview-wrap {
+      background: #17212B;
+      border-radius: 16px;
+      padding: 20px 16px;
+      min-height: 160px;
+    }
+    .tg-preview-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      font-size: 12px;
+      color: rgba(255,255,255,0.5);
+    }
+    .tg-bot-avatar {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #6B3FA0, #E8A84C);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+    }
+    .tg-bubble {
+      background: #2B5278;
+      border-radius: 12px 12px 12px 2px;
+      padding: 10px 14px;
+      font-size: 14px;
+      line-height: 1.6;
+      color: #fff;
+      max-width: 100%;
+      word-break: break-word;
+      white-space: pre-wrap;
+      position: relative;
+    }
+    .tg-bubble:empty::before {
+      content: 'Хабарды жазыңыз...';
+      color: rgba(255,255,255,0.3);
+      font-style: italic;
+    }
+    .tg-time {
+      font-size: 11px;
+      color: rgba(255,255,255,0.45);
+      text-align: right;
+      margin-top: 4px;
+    }
+
+    /* ── SQL setup box ── */
+    .sql-setup-box {
+      background: rgba(107,63,160,0.08);
+      border: 1px solid rgba(107,63,160,0.25);
+      border-radius: 12px;
+      padding: 18px 20px;
+      margin-bottom: 20px;
+    }
+    .sql-setup-box h4 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--purple-l);
+      margin-bottom: 10px;
+    }
+    .sql-code {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      color: var(--gold-l);
+      white-space: pre;
+      overflow-x: auto;
+      line-height: 1.7;
+      cursor: pointer;
+    }
+    .sql-code:hover { border-color: var(--purple); }
+
+    /* ── Progress modal ── */
+    .progress-overlay {
+      position: fixed; inset: 0;
+      background: rgba(19,13,34,0.88);
+      backdrop-filter: blur(10px);
+      z-index: 3000;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.25s;
+    }
+    .progress-overlay.open { opacity: 1; pointer-events: all; }
+    .progress-box {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 36px 40px;
+      text-align: center;
+      min-width: 360px;
+      max-width: 440px;
+    }
+    .progress-box .big-icon { font-size: 44px; margin-bottom: 16px; }
+    .progress-box h3 { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+    .progress-box .sub { font-size: 14px; color: var(--muted); margin-bottom: 24px; }
+
+    .progress-bar-wrap {
+      background: var(--border);
+      border-radius: 8px;
+      height: 10px;
+      overflow: hidden;
+      margin-bottom: 10px;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--purple), var(--gold));
+      border-radius: 8px;
+      transition: width 0.3s;
+    }
+    .progress-count {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 20px;
+    }
+
+    /* ── Result modal ── */
+    .result-overlay {
+      position: fixed; inset: 0;
+      background: rgba(19,13,34,0.88);
+      backdrop-filter: blur(10px);
+      z-index: 3000;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.25s;
+    }
+    .result-overlay.open { opacity: 1; pointer-events: all; }
+    .result-box {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 36px 40px;
+      text-align: center;
+      min-width: 360px;
+      max-width: 440px;
+    }
+    .result-success { border-color: rgba(74,222,128,0.35); }
+    .result-box .big-icon { font-size: 52px; margin-bottom: 14px; }
+    .result-box h3 { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+    .result-sent { font-size: 16px; color: var(--success); font-weight: 600; margin-bottom: 6px; }
+    .result-failed { font-size: 14px; color: var(--danger); margin-bottom: 20px; }
+    .result-btns { display: flex; gap: 12px; justify-content: center; margin-top: 20px; }
+
+    /* ── History status chips ── */
+    .status-sent      { background: rgba(74,222,128,0.15); color: var(--success); }
+    .status-pending   { background: rgba(232,168,76,0.15); color: var(--gold); }
+    .status-scheduled { background: rgba(139,92,246,0.2); color: var(--purple-l); }
+    .status-failed    { background: rgba(248,113,113,0.15); color: var(--danger); }
+
+    /* ── Responsive ── */
+    @media (max-width: 1000px) {
+      .composer-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="admin-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <img src="./tamyr_study_logo.png" alt="Tamyr" />
+        <div class="sidebar-logo-text">Tamyr <span>Admin Panel</span></div>
+      </div>
+      <nav>
+        <a href="dashboard.html"  class="nav-link"><span class="icon">📊</span> Басты бет</a>
+        <a href="questions.html"  class="nav-link"><span class="icon">❓</span> Сұрақтар</a>
+        <a href="users.html"      class="nav-link"><span class="icon">👥</span> Пайдаланушылар</a>
+        <a href="broadcast.html"  class="nav-link"><span class="icon">📢</span> Хабарландыру</a>
+        <a href="security.html"   class="nav-link"><span class="icon">🔒</span> Қауіпсіздік</a>
+      </nav>
+      <div class="sidebar-bottom">
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;margin-bottom:8px;">
+          <span style="font-size:16px;">👤</span>
+          <span id="adminEmail"
+                style="font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+        </div>
+        <button id="logoutBtn" class="logout-btn"><span>🚪</span> Шығу</button>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main-content">
+      <div class="page-header">
+        <h1>📢 Хабарландыру</h1>
+        <p>Telegram арқылы пайдаланушыларға хабар жіберу</p>
+      </div>
+
+      <!-- ── Top stats ── -->
+      <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:24px;">
+        <div class="stat-card">
+          <div class="stat-icon">👥</div>
+          <div class="stat-label">Жалпы пайдаланушылар</div>
+          <div class="stat-value" id="statTotal">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🟢</div>
+          <div class="stat-label">Бүгін белсенді</div>
+          <div class="stat-value" id="statToday">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">📨</div>
+          <div class="stat-label">Соңғы хабарландыру</div>
+          <div class="stat-value" id="statLastBc" style="font-size:18px;">—</div>
+        </div>
+      </div>
+
+      <!-- ── SQL setup notice (shown if table missing) ── -->
+      <div class="sql-setup-box" id="sqlSetupBox" style="display:none;">
+        <h4>⚙️ broadcasts кестесін жасаңыз</h4>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:10px;">
+          Supabase → SQL Editor ішіне төмендегі кодты іске қосыңыз:
+        </p>
+        <div class="sql-code" id="sqlCode" title="Басу арқылы көшіру">CREATE TABLE broadcasts (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  message text NOT NULL,
+  audience text NOT NULL,
+  message_type text DEFAULT 'text',
+  sent_count integer DEFAULT 0,
+  failed_count integer DEFAULT 0,
+  status text DEFAULT 'pending',
+  scheduled_at timestamptz,
+  sent_at timestamptz,
+  created_at timestamptz DEFAULT now()
+);</div>
+        <p style="font-size:12px;color:var(--muted);margin-top:8px;">Басу арқылы SQL кодын көшіруге болады</p>
+      </div>
+
+      <!-- ── Composer ── -->
+      <div class="composer-grid">
+        <!-- Left: form -->
+        <div class="card" style="padding:28px;">
+          <h3 style="font-size:16px;font-weight:700;margin-bottom:20px;">✍️ Хабар жасау</h3>
+
+          <!-- Audience -->
+          <div class="form-group">
+            <label>Аудитория</label>
+            <select id="audienceSelect" class="form-select">
+              <option value="all">👥 Барлық пайдаланушылар</option>
+              <option value="active_7d">🟢 Белсенді (соңғы 7 күн)</option>
+              <option value="active_30d">🌙 Белсенді (соңғы 30 күн)</option>
+              <option value="high_xp">⭐ Жоғары XP (500+)</option>
+              <option value="streak">🔥 Streak бар (3+ күн)</option>
+            </select>
+          </div>
+
+          <!-- Message type tabs -->
+          <div class="form-group">
+            <label>Хабар түрі</label>
+            <div class="msg-tabs">
+              <button class="msg-tab active" data-type="text">💬 Қарапайым</button>
+              <button class="msg-tab" data-type="notification">🔔 Хабарландыру</button>
+              <button class="msg-tab" data-type="new_topic">📚 Жаңа тақырып</button>
+              <button class="msg-tab" data-type="achievement">🏆 Жетістік</button>
+            </div>
+          </div>
+
+          <!-- Message textarea -->
+          <div class="form-group">
+            <label>Хабар мәтіні</label>
+            <textarea id="msgText" class="form-textarea"
+                      rows="5" maxlength="4096"
+                      placeholder="Хабарыңызды қазақша жазыңыз..."></textarea>
+            <div class="char-counter" id="charCounter">0 / 4096</div>
+          </div>
+
+          <!-- Templates -->
+          <div class="form-group">
+            <label>Үлгілер</label>
+            <div class="template-row">
+              <button class="template-btn" data-tpl="Жаңа тақырып қосылды! Қазір ойнаңыз 🎯">📚 Жаңа тақырып</button>
+              <button class="template-btn" data-tpl="Апталық рейтинг жарияланды! Алғашқы орынды алуға тырысыңыз 🏆">🏆 Рейтинг</button>
+              <button class="template-btn" data-tpl="Streakті жоғалтпа! Бүгін ойнауды ұмытпа 🔥">🔥 Streak ескерту</button>
+              <button class="template-btn" data-tpl="Тамыр тапсырмаларын орындап, XP жина! ⭐">⭐ XP шақыру</button>
+            </div>
+          </div>
+
+          <!-- Schedule -->
+          <div class="form-group" style="margin-bottom:0;">
+            <label>Жіберу уақыты</label>
+            <div class="schedule-row">
+              <label class="schedule-radio">
+                <input type="radio" name="schedule" value="now" checked id="schedNow" />
+                Қазір жіберу
+              </label>
+              <label class="schedule-radio">
+                <input type="radio" name="schedule" value="later" id="schedLater" />
+                Кейінге қалдыру
+              </label>
+              <input type="datetime-local" id="scheduledAt" disabled
+                     min="" style="flex:1;" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: preview + send -->
+        <div>
+          <!-- Recipient count -->
+          <div class="recipient-badge" id="recipientBadge">
+            <span>👥</span>
+            <span id="recipientCount">Жүктелуде...</span>
+          </div>
+
+          <!-- Telegram preview -->
+          <div class="card" style="padding:16px;margin-bottom:16px;">
+            <p style="font-size:12px;color:var(--muted);margin-bottom:10px;font-weight:600;">
+              TELEGRAM АЛДЫН АЛА ҚАРАУ
+            </p>
+            <div class="tg-preview-wrap">
+              <div class="tg-preview-header">
+                <div class="tg-bot-avatar">🌿</div>
+                <span>Tamyr Study Bot</span>
+              </div>
+              <div class="tg-bubble" id="tgPreview"></div>
+              <div class="tg-time" id="tgTime"></div>
+            </div>
+          </div>
+
+          <!-- Send button -->
+          <button id="sendBtn" class="btn btn-gold"
+                  style="width:100%;justify-content:center;padding:14px;font-size:15px;">
+            📤 Жіберу
+          </button>
+
+          <p style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px;">
+            Жіберу алдында аудиторияны тексеріңіз
+          </p>
+        </div>
+      </div>
+
+      <!-- ── Broadcast history ── -->
+      <div class="card" style="padding:24px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+          <h3 style="font-size:16px;font-weight:700;">📋 Жіберу тарихы</h3>
+          <button class="btn btn-ghost btn-sm" onclick="loadHistory()">↻ Жаңарту</button>
+        </div>
+        <div class="table-wrap" style="border-radius:10px;">
+          <table>
+            <thead>
+              <tr>
+                <th>Уақыт</th>
+                <th>Хабар</th>
+                <th>Аудитория</th>
+                <th style="text-align:center;">Жіберілді</th>
+                <th style="text-align:center;">Қате</th>
+                <th>Күй</th>
+              </tr>
+            </thead>
+            <tbody id="historyBody">
+              <tr class="loading-row">
+                <td colspan="6"><div class="spinner"></div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ── Progress modal ── -->
+  <div class="progress-overlay" id="progressOverlay">
+    <div class="progress-box">
+      <div class="big-icon">📤</div>
+      <h3>Жіберілуде...</h3>
+      <p class="sub" id="progressSub">Дайындалуда</p>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar-fill" id="progressFill"></div>
+      </div>
+      <div class="progress-count" id="progressCount">0 / 0</div>
+      <button class="btn btn-danger" id="cancelSendBtn">✕ Тоқтату</button>
+    </div>
+  </div>
+
+  <!-- ── Result modal ── -->
+  <div class="result-overlay" id="resultOverlay">
+    <div class="result-box result-success" id="resultBox">
+      <div class="big-icon" id="resultIcon">✅</div>
+      <h3 id="resultTitle">Жіберілді!</h3>
+      <div class="result-sent" id="resultSent"></div>
+      <div class="result-failed" id="resultFailed" style="display:none;"></div>
+      <p style="font-size:13px;color:var(--muted);" id="resultMsg"></p>
+      <div class="result-btns">
+        <button class="btn btn-ghost" id="closeResultBtn">Жабу</button>
+        <button class="btn btn-gold" onclick="document.getElementById('resultOverlay').classList.remove('open');loadHistory();">
+          📋 Тарихты көру
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="admin.js"></script>
+  <script>
+    // ══════════════════════════════════════════════════════════
+    // CONFIG — Replace with your Tamyr bot token from @BotFather
+    // ══════════════════════════════════════════════════════════
+    const BOT_TOKEN = 'ENTER_YOUR_TAMYR_BOT_TOKEN';
+
+    const MSG_PREFIXES = {
+      text:         '',
+      notification: '🔔 ',
+      new_topic:    '📚 ',
+      achievement:  '🏆 ',
+    };
+
+    const AUDIENCE_LABELS = {
+      all:       'Барлық пайдаланушылар',
+      active_7d: 'Белсенді (7 күн)',
+      active_30d:'Белсенді (30 күн)',
+      high_xp:   'Жоғары XP (500+)',
+      streak:    'Streak (3+ күн)',
+    };
+
+    let activeType   = 'text';
+    let cancelFlag   = false;
+
+    // ── Init ──
+    async function init() {
+      await checkAuth();
+      setScheduleMin();
+      await Promise.all([loadTopStats(), loadRecipientCount(), loadHistory()]);
+      bindEvents();
+      updatePreview();
+      checkBroadcastsTable();
+    }
+
+    // ── Top stats ──
+    async function loadTopStats() {
+      const today = new Date(); today.setHours(0,0,0,0);
+
+      const [total, todayActive, lastBc] = await Promise.all([
+        db.from('users').select('*', { count: 'exact', head: true }),
+        db.from('users').select('*', { count: 'exact', head: true })
+          .gte('last_played_at', today.toISOString()),
+        db.from('broadcasts').select('sent_at').eq('status','sent')
+          .order('sent_at', { ascending: false }).limit(1)
+      ]);
+
+      document.getElementById('statTotal').textContent =
+        (total.count ?? 0).toLocaleString();
+      document.getElementById('statToday').textContent =
+        (todayActive.count ?? 0).toLocaleString();
+
+      const lastRow = lastBc.data?.[0];
+      document.getElementById('statLastBc').textContent =
+        lastRow?.sent_at ? formatDateTime(lastRow.sent_at) : 'Жоқ';
+    }
+
+    // ── Check broadcasts table exists ──
+    async function checkBroadcastsTable() {
+      const { error } = await db.from('broadcasts').select('id').limit(1);
+      if (error?.code === '42P01' || error?.message?.includes('does not exist')) {
+        document.getElementById('sqlSetupBox').style.display = '';
+      }
+    }
+
+    // ── Recipient count ──
+    async function loadRecipientCount() {
+      const audience = document.getElementById('audienceSelect').value;
+      document.getElementById('recipientCount').textContent = 'Есептелуде...';
+
+      let query = db.from('users').select('*', { count: 'exact', head: true });
+
+      if (audience === 'active_7d') {
+        const d = new Date(); d.setDate(d.getDate() - 7);
+        query = query.gte('last_played_at', d.toISOString());
+      } else if (audience === 'active_30d') {
+        const d = new Date(); d.setDate(d.getDate() - 30);
+        query = query.gte('last_played_at', d.toISOString());
+      } else if (audience === 'high_xp') {
+        query = query.gte('total_xp', 500);
+      } else if (audience === 'streak') {
+        query = query.gte('streak_days', 3);
+      }
+
+      const { count } = await query;
+      document.getElementById('recipientCount').textContent =
+        `${(count ?? 0).toLocaleString()} пайдаланушыға жіберіледі`;
+    }
+
+    // ── Preview ──
+    function updatePreview() {
+      const raw    = document.getElementById('msgText').value;
+      const prefix = MSG_PREFIXES[activeType] ?? '';
+      const full   = prefix + raw;
+
+      document.getElementById('tgPreview').textContent = full;
+      document.getElementById('tgTime').textContent =
+        new Date().toLocaleTimeString('kk-KZ', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    // ── Char counter ──
+    function updateCharCounter() {
+      const len = document.getElementById('msgText').value.length;
+      const el  = document.getElementById('charCounter');
+      el.textContent = `${len} / 4096`;
+      el.className   = 'char-counter' +
+        (len > 3800 ? ' limit' : len > 3000 ? ' warn' : '');
+    }
+
+    // ── Schedule datetime min ──
+    function setScheduleMin() {
+      const now = new Date(Date.now() + 60000);
+      document.getElementById('scheduledAt').min =
+        now.toISOString().slice(0, 16);
+    }
+
+    // ── Progress helpers ──
+    function showProgress() {
+      cancelFlag = false;
+      document.getElementById('progressFill').style.width = '0%';
+      document.getElementById('progressCount').textContent = '0 / 0';
+      document.getElementById('progressSub').textContent   = 'Дайындалуда';
+      document.getElementById('progressOverlay').classList.add('open');
+    }
+    function updateProgress(done, total) {
+      const pct = total ? Math.round((done / total) * 100) : 0;
+      document.getElementById('progressFill').style.width   = pct + '%';
+      document.getElementById('progressCount').textContent  = `${done} / ${total}`;
+      document.getElementById('progressSub').textContent    = `${pct}% аяқталды`;
+    }
+    function hideProgress() {
+      document.getElementById('progressOverlay').classList.remove('open');
+    }
+
+    // ── Result ──
+    function showResult(sent, failed, cancelled) {
+      const icon  = cancelled ? '⚠️' : failed > 0 ? '⚡' : '✅';
+      const title = cancelled ? 'Тоқтатылды' : 'Жіберілді!';
+
+      document.getElementById('resultIcon').textContent  = icon;
+      document.getElementById('resultTitle').textContent = title;
+      document.getElementById('resultSent').textContent  = `✅ ${sent} пайдаланушыға жіберілді`;
+
+      const failedEl = document.getElementById('resultFailed');
+      if (failed > 0) {
+        failedEl.textContent = `❌ ${failed} қате (блоктаған немесе белсенді емес)`;
+        failedEl.style.display = '';
+      } else {
+        failedEl.style.display = 'none';
+      }
+
+      document.getElementById('resultMsg').textContent = cancelled
+        ? 'Жіберу қолмен тоқтатылды.'
+        : 'Хабар сәтті жіберілді.';
+
+      document.getElementById('resultOverlay').classList.add('open');
+    }
+
+    // ── Get audience users ──
+    async function getAudienceUsers(audience) {
+      let query = db.from('users').select('telegram_id').not('telegram_id', 'is', null);
+
+      if (audience === 'active_7d') {
+        const d = new Date(); d.setDate(d.getDate() - 7);
+        query = query.gte('last_played_at', d.toISOString());
+      } else if (audience === 'active_30d') {
+        const d = new Date(); d.setDate(d.getDate() - 30);
+        query = query.gte('last_played_at', d.toISOString());
+      } else if (audience === 'high_xp') {
+        query = query.gte('total_xp', 500);
+      } else if (audience === 'streak') {
+        query = query.gte('streak_days', 3);
+      }
+
+      const { data, error } = await query;
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    }
+
+    // ── Send broadcast ──
+    async function sendBroadcast() {
+      const text     = document.getElementById('msgText').value.trim();
+      const audience = document.getElementById('audienceSelect').value;
+      const schedNow = document.getElementById('schedNow').checked;
+      const schedAt  = document.getElementById('scheduledAt').value;
+
+      if (!text) { showToast('Хабар мәтінін жазыңыз', 'error'); return; }
+      if (BOT_TOKEN === 'ENTER_YOUR_TAMYR_BOT_TOKEN') {
+        showToast('Алдымен BOT_TOKEN-ды енгізіңіз', 'error');
+        return;
+      }
+
+      // Scheduled: just save to DB
+      if (!schedNow) {
+        if (!schedAt) { showToast('Уақытты таңдаңыз', 'error'); return; }
+        const { error } = await db.from('broadcasts').insert({
+          message:      MSG_PREFIXES[activeType] + text,
+          audience,
+          message_type: activeType,
+          status:       'scheduled',
+          scheduled_at: new Date(schedAt).toISOString(),
+        });
+        if (error) { showToast('Сақтау қатесі: ' + error.message, 'error'); return; }
+        showToast('Хабар кезекке қосылды ✓');
+        loadHistory();
+        return;
+      }
+
+      // Immediate send
+      document.getElementById('sendBtn').disabled = true;
+      showProgress();
+
+      let users;
+      try {
+        users = await getAudienceUsers(audience);
+      } catch(e) {
+        hideProgress();
+        document.getElementById('sendBtn').disabled = false;
+        showToast('Пайдаланушы тізімін алу қатесі: ' + e.message, 'error');
+        return;
+      }
+
+      if (!users.length) {
+        hideProgress(); document.getElementById('sendBtn').disabled = false;
+        showToast('Таңдалған аудиторияда пайдаланушылар жоқ', 'error');
+        return;
+      }
+
+      const formattedMsg = MSG_PREFIXES[activeType] + text;
+      let sent = 0, failed = 0;
+
+      for (let i = 0; i < users.length; i++) {
+        if (cancelFlag) break;
+
+        updateProgress(i, users.length);
+
+        try {
+          const res = await fetch(
+            `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`,
+            {
+              method:  'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body:    JSON.stringify({
+                chat_id:    users[i].telegram_id,
+                text:       formattedMsg,
+                parse_mode: 'HTML',
+              }),
+            }
+          );
+          if (res.ok) sent++;
+          else failed++;
+        } catch(e) {
+          failed++;
+        }
+
+        // Telegram rate limit: max 30 msg/sec, pause every 25
+        if ((i + 1) % 25 === 0 && i < users.length - 1) {
+          await new Promise(r => setTimeout(r, 1000));
+        }
+      }
+
+      // Save to broadcasts table
+      await db.from('broadcasts').insert({
+        message:      formattedMsg,
+        audience,
+        message_type: activeType,
+        sent_count:   sent,
+        failed_count: failed,
+        status:       cancelFlag ? 'cancelled' : 'sent',
+        sent_at:      new Date().toISOString(),
+      });
+
+      hideProgress();
+      document.getElementById('sendBtn').disabled = false;
+      showResult(sent, failed, cancelFlag);
+      loadTopStats();
+      loadHistory();
+    }
+
+    // ── Load history ──
+    async function loadHistory() {
+      const { data, error } = await db
+        .from('broadcasts')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(30);
+
+      const tbody = document.getElementById('historyBody');
+
+      if (error) {
+        // Table might not exist yet
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px;">
+          Broadcasts кестесі жасалмаған — жоғарыдағы SQL нұсқауын орындаңыз</td></tr>`;
+        document.getElementById('sqlSetupBox').style.display = '';
+        return;
+      }
+
+      if (!data?.length) {
+        tbody.innerHTML = `<tr><td colspan="6">
+          <div class="empty-state"><div class="icon">📭</div><p>Тарих бос</p></div>
+        </td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = data.map(b => {
+        const statusClass = {
+          sent:      'status-sent',
+          pending:   'status-pending',
+          scheduled: 'status-scheduled',
+          cancelled: 'status-failed',
+          failed:    'status-failed',
+        }[b.status] ?? 'status-pending';
+
+        const statusLabel = {
+          sent:      '✓ Жіберілді',
+          pending:   '⏳ Кезекте',
+          scheduled: '🕐 Жоспарланған',
+          cancelled: '✕ Тоқтатылды',
+          failed:    '✕ Сәтсіз',
+        }[b.status] ?? b.status;
+
+        const timeVal = b.sent_at ?? b.scheduled_at ?? b.created_at;
+
+        return `<tr>
+          <td style="color:var(--muted);font-size:12px;white-space:nowrap;">${formatDateTime(timeVal)}</td>
+          <td class="truncate" style="max-width:220px;" title="${escapeHtml(b.message)}">${escapeHtml(b.message)}</td>
+          <td><span class="chip chip-purple">${escapeHtml(AUDIENCE_LABELS[b.audience] ?? b.audience)}</span></td>
+          <td style="text-align:center;color:var(--success);font-weight:600;">${b.sent_count}</td>
+          <td style="text-align:center;color:${b.failed_count > 0 ? 'var(--danger)' : 'var(--muted)'};">
+            ${b.failed_count}
+          </td>
+          <td><span class="chip ${statusClass}">${statusLabel}</span></td>
+        </tr>`;
+      }).join('');
+    }
+
+    // ── Events ──
+    function bindEvents() {
+      // Message type tabs
+      document.querySelectorAll('.msg-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          document.querySelectorAll('.msg-tab').forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+          activeType = tab.dataset.type;
+          updatePreview();
+        });
+      });
+
+      // Textarea
+      document.getElementById('msgText').addEventListener('input', () => {
+        updateCharCounter();
+        updatePreview();
+      });
+
+      // Template buttons
+      document.querySelectorAll('.template-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const ta = document.getElementById('msgText');
+          ta.value = btn.dataset.tpl;
+          updateCharCounter();
+          updatePreview();
+          ta.focus();
+        });
+      });
+
+      // Audience change → update count
+      document.getElementById('audienceSelect').addEventListener('change', loadRecipientCount);
+
+      // Schedule radio
+      document.getElementById('schedNow').addEventListener('change',  () => {
+        document.getElementById('scheduledAt').disabled = true;
+      });
+      document.getElementById('schedLater').addEventListener('change', () => {
+        document.getElementById('scheduledAt').disabled = false;
+        document.getElementById('scheduledAt').focus();
+      });
+
+      // Send button
+      document.getElementById('sendBtn').addEventListener('click', sendBroadcast);
+
+      // Cancel send
+      document.getElementById('cancelSendBtn').addEventListener('click', () => {
+        cancelFlag = true;
+        document.getElementById('progressSub').textContent = 'Тоқтатылуда...';
+      });
+
+      // Close result
+      document.getElementById('closeResultBtn').addEventListener('click', () => {
+        document.getElementById('resultOverlay').classList.remove('open');
+      });
+
+      // Copy SQL
+      document.getElementById('sqlCode').addEventListener('click', () => {
+        navigator.clipboard.writeText(document.getElementById('sqlCode').textContent)
+          .then(() => showToast('SQL буферге көшірілді'));
+      });
+    }
+
+    function escapeHtml(str) {
+      return String(str ?? '')
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;');
+    }
+
+    init();
+  </script>
+</body>
+</html>

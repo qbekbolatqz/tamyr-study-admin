@@ -29,6 +29,9 @@
         <a href="users.html" class="nav-link">
           <span class="icon">👥</span> Пайдаланушылар
         </a>
+        <a href="broadcast.html" class="nav-link">
+          <span class="icon">📢</span> Хабарландыру
+        </a>
         <a href="security.html" class="nav-link">
           <span class="icon">🔒</span> Қауіпсіздік
         </a>
@@ -88,6 +91,17 @@
         </div>
       </div>
 
+      <!-- Recent broadcasts widget -->
+      <div class="card" style="margin-bottom:20px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+          <h3 style="font-size:15px;font-weight:600;">📢 Соңғы хабарландырулар</h3>
+          <a href="broadcast.html" class="btn btn-ghost btn-sm">Барлығын көру →</a>
+        </div>
+        <div id="recentBroadcasts" style="display:flex;flex-direction:column;gap:10px;">
+          <div class="spinner" style="margin:20px auto;"></div>
+        </div>
+      </div>
+
       <!-- Recent sessions -->
       <div class="card">
         <h3 style="font-size:15px;font-weight:600;margin-bottom:18px;">
@@ -134,7 +148,8 @@
         loadStats(),
         loadCategoryChart(),
         loadUsersChart(),
-        loadRecentSessions()
+        loadRecentSessions(),
+        loadRecentBroadcasts()
       ]);
     }
 
@@ -268,6 +283,51 @@
           <td style="color:var(--muted);font-size:13px;">${formatDate(s.completed_at)}</td>
         </tr>
       `).join('');
+    }
+
+    async function loadRecentBroadcasts() {
+      const wrap = document.getElementById('recentBroadcasts');
+      const { data, error } = await db
+        .from('broadcasts')
+        .select('message, audience, sent_count, sent_at, status')
+        .order('created_at', { ascending: false })
+        .limit(3);
+
+      if (error || !data?.length) {
+        wrap.innerHTML = `<p style="color:var(--muted);font-size:13px;text-align:center;padding:12px 0;">
+          Хабарландырулар жоқ —
+          <a href="broadcast.html" style="color:var(--gold);">жіберуді бастаңыз</a>
+        </p>`;
+        return;
+      }
+
+      const AUDIENCE_LABELS = {
+        all:'Барлық', active_7d:'7 күн', active_30d:'30 күн',
+        high_xp:'XP 500+', streak:'Streak'
+      };
+
+      wrap.innerHTML = data.map(b => `
+        <div style="display:flex;align-items:center;justify-content:space-between;
+                    padding:12px 14px;border-radius:10px;
+                    background:rgba(255,255,255,0.03);border:1px solid var(--border);">
+          <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+            <span style="font-size:20px;">📨</span>
+            <div style="min-width:0;">
+              <p style="font-size:13px;font-weight:600;overflow:hidden;
+                         text-overflow:ellipsis;white-space:nowrap;max-width:280px;">
+                ${b.message.slice(0, 70)}${b.message.length > 70 ? '…' : ''}
+              </p>
+              <p style="font-size:12px;color:var(--muted);margin-top:2px;">
+                ${AUDIENCE_LABELS[b.audience] ?? b.audience} •
+                ${formatDate(b.sent_at ?? '')}
+              </p>
+            </div>
+          </div>
+          <span style="font-size:13px;font-weight:700;color:var(--success);
+                        flex-shrink:0;margin-left:12px;">
+            ${b.sent_count} ↗
+          </span>
+        </div>`).join('');
     }
 
     init();
