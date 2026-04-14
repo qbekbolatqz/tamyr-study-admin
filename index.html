@@ -7,52 +7,298 @@
   <link rel="icon" type="image/png" href="./tamyr_study_logo.png">
   <link rel="apple-touch-icon" href="./tamyr_study_logo.png">
   <link rel="stylesheet" href="admin.css" />
+  <style>
+    /* ── Login steps ── */
+    .login-step { transition: opacity 0.3s, transform 0.3s; }
+    .login-step.hidden {
+      display: none;
+    }
+
+    /* ── OTP input ── */
+    .otp-input {
+      width: 100%;
+      text-align: center;
+      font-size: 36px;
+      font-weight: 700;
+      letter-spacing: 16px;
+      padding: 16px 8px;
+      background: var(--card);
+      border: 2px solid var(--border);
+      border-radius: 14px;
+      color: var(--cream);
+      outline: none;
+      font-family: 'Courier New', monospace;
+      transition: border-color 0.2s;
+    }
+    .otp-input:focus { border-color: var(--purple); }
+    .otp-input.valid  { border-color: var(--success); }
+
+    /* ── Security badge ── */
+    .security-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(107,63,160,0.15);
+      border: 1px solid rgba(107,63,160,0.3);
+      color: var(--purple-l);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 5px 12px;
+      border-radius: 20px;
+      margin-bottom: 20px;
+    }
+
+    /* ── Step indicator ── */
+    .step-indicator {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+    .step-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--border);
+      transition: background 0.3s, transform 0.3s;
+    }
+    .step-dot.active {
+      background: var(--gold);
+      transform: scale(1.3);
+    }
+    .step-dot.done {
+      background: var(--success);
+    }
+
+    /* ── Back link ── */
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: var(--muted);
+      cursor: pointer;
+      margin-bottom: 20px;
+      background: none;
+      border: none;
+      font-family: inherit;
+      transition: color 0.2s;
+    }
+    .back-link:hover { color: var(--cream); }
+
+    /* ── Resend timer ── */
+    .resend-row {
+      text-align: center;
+      margin-top: 14px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .resend-btn {
+      background: none;
+      border: none;
+      color: var(--gold);
+      font-size: 13px;
+      font-family: inherit;
+      cursor: pointer;
+      text-decoration: underline;
+      padding: 0;
+    }
+    .resend-btn:disabled { color: var(--muted); text-decoration: none; cursor: default; }
+
+    /* ── Spinner inside button ── */
+    .btn-spinner {
+      display: inline-block;
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      vertical-align: middle;
+    }
+
+    /* ── Email display ── */
+    .email-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(107,63,160,0.15);
+      border: 1px solid rgba(107,63,160,0.3);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 13px;
+      color: var(--purple-l);
+      font-weight: 500;
+      margin-bottom: 20px;
+    }
+
+    /* ── Timeout banner ── */
+    .timeout-banner {
+      background: rgba(232,168,76,0.12);
+      border: 1px solid rgba(232,168,76,0.3);
+      color: var(--gold);
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      margin-bottom: 18px;
+      text-align: center;
+      display: none;
+    }
+    .timeout-banner.visible { display: block; }
+  </style>
 </head>
 <body>
   <div class="login-page">
-    <div class="login-card">
+    <div class="login-card" style="max-width:420px;">
       <img class="login-logo" src="./tamyr_study_logo.png" alt="Tamyr" />
       <h1>Tamyr Admin</h1>
-      <p class="subtitle">Басқару панеліне кіру</p>
+      <div class="security-badge">🔒 Екі факторлы қорғаныс</div>
 
+      <!-- Step indicator -->
+      <div class="step-indicator">
+        <div class="step-dot active" id="dot1"></div>
+        <div class="step-dot" id="dot2"></div>
+      </div>
+
+      <!-- Session timeout notice -->
+      <div id="timeoutBanner" class="timeout-banner">
+        ⏱ Белсенділік болмағандықтан жүйеден шығарылдыңыз
+      </div>
+
+      <!-- Error message -->
       <div id="errorMsg" class="error-msg"></div>
 
-      <div class="form-group">
-        <label for="email">Email</label>
-        <input id="email" class="form-input" type="email"
-               placeholder="admin@tamyr.study" autocomplete="email" />
-      </div>
-      <div class="form-group" style="margin-bottom:24px">
-        <label for="password">Құпия сөз</label>
-        <input id="password" class="form-input" type="password"
-               placeholder="••••••••" autocomplete="current-password" />
+      <!-- ══ STEP 1: Email + Password ══ -->
+      <div id="step1" class="login-step">
+        <p class="subtitle" style="margin-bottom:24px;">Аккаунтқа кіру</p>
+
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input id="email" class="form-input" type="email"
+                 placeholder="admin@tamyr.study" autocomplete="email" />
+        </div>
+        <div class="form-group" style="margin-bottom:24px;">
+          <label for="password">Құпия сөз</label>
+          <input id="password" class="form-input" type="password"
+                 placeholder="••••••••" autocomplete="current-password" />
+        </div>
+
+        <button id="loginBtn" class="btn btn-gold"
+                style="width:100%;justify-content:center;padding:13px;">
+          Кіру
+        </button>
       </div>
 
-      <button id="loginBtn" class="btn btn-gold" style="width:100%;justify-content:center;padding:13px;">
-        Кіру
-      </button>
+      <!-- ══ STEP 2A: TOTP (Google Authenticator) ══ -->
+      <div id="step2totp" class="login-step hidden">
+        <button class="back-link" id="backFromTotp">← Артқа</button>
+
+        <div style="text-align:center;margin-bottom:20px;">
+          <div style="font-size:36px;margin-bottom:8px;">📱</div>
+          <p class="subtitle">Google Authenticator қосымшасынан</p>
+          <p style="font-size:13px;color:var(--muted);">6 таңбалы кодты енгізіңіз</p>
+        </div>
+
+        <div id="totpEmailPill" class="email-pill" style="justify-content:center;"></div>
+
+        <input id="totpCode" class="otp-input" type="text" inputmode="numeric"
+               maxlength="6" placeholder="000000" autocomplete="one-time-code" />
+
+        <button id="totpVerifyBtn" class="btn btn-gold"
+                style="width:100%;justify-content:center;padding:13px;margin-top:16px;">
+          Растау
+        </button>
+      </div>
+
+      <!-- ══ STEP 2B: Email OTP ══ -->
+      <div id="step2otp" class="login-step hidden">
+        <button class="back-link" id="backFromOtp">← Артқа</button>
+
+        <div style="text-align:center;margin-bottom:20px;">
+          <div style="font-size:36px;margin-bottom:8px;">📧</div>
+          <p class="subtitle">Email арқылы растау</p>
+          <p style="font-size:13px;color:var(--muted);">Поштаңызға 6 таңбалы код жіберілді</p>
+        </div>
+
+        <div id="otpEmailPill" class="email-pill" style="justify-content:center;"></div>
+
+        <input id="otpCode" class="otp-input" type="text" inputmode="numeric"
+               maxlength="6" placeholder="000000" autocomplete="one-time-code" />
+
+        <button id="otpVerifyBtn" class="btn btn-gold"
+                style="width:100%;justify-content:center;padding:13px;margin-top:16px;">
+          Растау
+        </button>
+
+        <div class="resend-row">
+          <button id="resendBtn" class="resend-btn" disabled>
+            Қайта жіберу (<span id="resendTimer">30</span>с)
+          </button>
+        </div>
+      </div>
+
     </div>
   </div>
 
-  <!-- Supabase CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script src="admin.js"></script>
   <script>
-    // If already logged in — go to dashboard
+    // ── Timeout banner ──
+    if (new URLSearchParams(location.search).get('reason') === 'timeout') {
+      document.getElementById('timeoutBanner').classList.add('visible');
+    }
+
+    // ── Already authenticated? ──
     (async () => {
       const { data: { session } } = await db.auth.getSession();
-      if (session && ADMIN_EMAILS.includes(session.user.email)) {
+      if (!session || !ADMIN_EMAILS.includes(session.user.email)) return;
+      const { data: aal } = await db.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (!aal || aal.currentLevel === aal.nextLevel) {
         window.location.href = 'dashboard.html';
       }
     })();
 
-    const loginBtn = document.getElementById('loginBtn');
+    // ── State ──
+    let currentEmail  = '';
+    let totpFactorId  = '';
+    let totpChallengeId = '';
+    let resendInterval = null;
+
+    // ── Helpers ──
     const errorMsg = document.getElementById('errorMsg');
 
     function showError(msg) {
       errorMsg.textContent = msg;
       errorMsg.classList.add('visible');
     }
+    function clearError() {
+      errorMsg.classList.remove('visible');
+    }
+
+    function setStep(name) {
+      // name: 'step1' | 'step2totp' | 'step2otp'
+      ['step1','step2totp','step2otp'].forEach(id => {
+        document.getElementById(id).classList.add('hidden');
+      });
+      document.getElementById(name).classList.remove('hidden');
+      clearError();
+
+      // Dots
+      const dot1 = document.getElementById('dot1');
+      const dot2 = document.getElementById('dot2');
+      dot1.className = 'step-dot ' + (name === 'step1' ? 'active' : 'done');
+      dot2.className = 'step-dot ' + (name !== 'step1' ? 'active' : '');
+    }
+
+    function setLoading(btn, loading, text = 'Растауда...') {
+      btn.disabled = loading;
+      btn.innerHTML = loading
+        ? `<span class="btn-spinner"></span> ${text}`
+        : btn.dataset.label || btn.textContent;
+    }
+
+    // ── STEP 1: Password login ──
+    const loginBtn = document.getElementById('loginBtn');
+    loginBtn.dataset.label = 'Кіру';
 
     document.getElementById('password').addEventListener('keydown', e => {
       if (e.key === 'Enter') loginBtn.click();
@@ -61,34 +307,170 @@
     loginBtn.addEventListener('click', async () => {
       const email    = document.getElementById('email').value.trim();
       const password = document.getElementById('password').value;
-      errorMsg.classList.remove('visible');
+      clearError();
 
-      if (!email || !password) {
-        showError('Email мен құпия сөзді толтырыңыз');
-        return;
-      }
+      if (!email || !password) { showError('Email мен құпия сөзді толтырыңыз'); return; }
+      if (!ADMIN_EMAILS.includes(email)) { showError('Бұл email администратор тізімінде жоқ'); return; }
 
-      if (!ADMIN_EMAILS.includes(email)) {
-        showError('Бұл email администратор тізімінде жоқ');
-        return;
-      }
-
-      loginBtn.textContent = 'Кіруде...';
-      loginBtn.disabled = true;
+      setLoading(loginBtn, true, 'Тексеруде...');
 
       const { data, error } = await db.auth.signInWithPassword({ email, password });
 
-      loginBtn.textContent = 'Кіру';
-      loginBtn.disabled = false;
+      setLoading(loginBtn, false);
 
       if (error) {
         showError(error.message === 'Invalid login credentials'
-          ? 'Email немесе құпия сөз қате'
-          : error.message);
+          ? 'Email немесе құпия сөз қате' : error.message);
         return;
       }
 
+      currentEmail = email;
+
+      // Check MFA level
+      const { data: aal } = await db.auth.mfa.getAuthenticatorAssuranceLevel();
+
+      if (aal?.nextLevel === 'aal2' && aal?.currentLevel !== 'aal2') {
+        // TOTP enrolled — go to TOTP step
+        await startTotpChallenge();
+      } else {
+        // No TOTP — send email OTP
+        await sendEmailOtp();
+      }
+    });
+
+    // ── STEP 2A: TOTP ──
+    async function startTotpChallenge() {
+      const { data: factors } = await db.auth.mfa.listFactors();
+      const totp = factors?.totp?.[0];
+      if (!totp) { showError('TOTP конфигурациясы табылмады'); return; }
+
+      totpFactorId = totp.id;
+
+      const { data: challenge, error } = await db.auth.mfa.challenge({ factorId: totpFactorId });
+      if (error) { showError('Challenge жасау қатесі: ' + error.message); return; }
+
+      totpChallengeId = challenge.id;
+      document.getElementById('totpEmailPill').textContent = '📧 ' + currentEmail;
+      setStep('step2totp');
+      setTimeout(() => document.getElementById('totpCode').focus(), 100);
+    }
+
+    const totpCode      = document.getElementById('totpCode');
+    const totpVerifyBtn = document.getElementById('totpVerifyBtn');
+    totpVerifyBtn.dataset.label = 'Растау';
+
+    // Auto-submit when 6 digits entered
+    totpCode.addEventListener('input', e => {
+      e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6);
+      e.target.classList.toggle('valid', e.target.value.length === 6);
+      if (e.target.value.length === 6) totpVerifyBtn.click();
+    });
+    totpCode.addEventListener('keydown', e => {
+      if (e.key === 'Enter') totpVerifyBtn.click();
+    });
+
+    totpVerifyBtn.addEventListener('click', async () => {
+      const code = totpCode.value.trim();
+      if (code.length !== 6) { showError('6 таңбалы код енгізіңіз'); return; }
+      clearError();
+      setLoading(totpVerifyBtn, true);
+
+      const { error } = await db.auth.mfa.verify({
+        factorId:    totpFactorId,
+        challengeId: totpChallengeId,
+        code,
+      });
+
+      setLoading(totpVerifyBtn, false);
+      if (error) { showError('Код қате немесе мерзімі өткен'); totpCode.value = ''; totpCode.classList.remove('valid'); return; }
+
       window.location.href = 'dashboard.html';
+    });
+
+    document.getElementById('backFromTotp').addEventListener('click', () => {
+      db.auth.signOut();
+      setStep('step1');
+      totpCode.value = '';
+      totpCode.classList.remove('valid');
+    });
+
+    // ── STEP 2B: Email OTP ──
+    async function sendEmailOtp() {
+      const { error } = await db.auth.signInWithOtp({
+        email: currentEmail,
+        options: { shouldCreateUser: false }
+      });
+      if (error) { showError('OTP жіберу қатесі: ' + error.message); return; }
+
+      document.getElementById('otpEmailPill').textContent = '📧 ' + currentEmail;
+      setStep('step2otp');
+      startResendTimer();
+      setTimeout(() => document.getElementById('otpCode').focus(), 100);
+    }
+
+    function startResendTimer() {
+      let secs = 30;
+      const timerEl  = document.getElementById('resendTimer');
+      const resendBtn = document.getElementById('resendBtn');
+      resendBtn.disabled = true;
+      timerEl.textContent = secs;
+
+      clearInterval(resendInterval);
+      resendInterval = setInterval(() => {
+        secs--;
+        timerEl.textContent = secs;
+        if (secs <= 0) {
+          clearInterval(resendInterval);
+          resendBtn.disabled = false;
+          resendBtn.innerHTML = 'Қайта жіберу';
+        }
+      }, 1000);
+    }
+
+    document.getElementById('resendBtn').addEventListener('click', async () => {
+      clearError();
+      document.getElementById('resendBtn').innerHTML =
+        '<span class="btn-spinner" style="border-top-color:var(--gold);border-color:rgba(232,168,76,0.3);"></span>';
+      await sendEmailOtp();
+      showToast('Жаңа код жіберілді', 'success');
+    });
+
+    const otpCode      = document.getElementById('otpCode');
+    const otpVerifyBtn = document.getElementById('otpVerifyBtn');
+    otpVerifyBtn.dataset.label = 'Растау';
+
+    otpCode.addEventListener('input', e => {
+      e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6);
+      e.target.classList.toggle('valid', e.target.value.length === 6);
+    });
+    otpCode.addEventListener('keydown', e => {
+      if (e.key === 'Enter') otpVerifyBtn.click();
+    });
+
+    otpVerifyBtn.addEventListener('click', async () => {
+      const code = otpCode.value.trim();
+      if (code.length !== 6) { showError('6 таңбалы код енгізіңіз'); return; }
+      clearError();
+      setLoading(otpVerifyBtn, true);
+
+      const { data, error } = await db.auth.verifyOtp({
+        email: currentEmail,
+        token: code,
+        type:  'email',
+      });
+
+      setLoading(otpVerifyBtn, false);
+      if (error) { showError('Код қате немесе мерзімі өткен'); otpCode.value = ''; otpCode.classList.remove('valid'); return; }
+
+      window.location.href = 'dashboard.html';
+    });
+
+    document.getElementById('backFromOtp').addEventListener('click', () => {
+      clearInterval(resendInterval);
+      db.auth.signOut();
+      setStep('step1');
+      otpCode.value = '';
+      otpCode.classList.remove('valid');
     });
   </script>
 </body>

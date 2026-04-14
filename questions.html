@@ -19,9 +19,15 @@
       <nav>
         <a href="dashboard.html" class="nav-link"><span class="icon">📊</span> Басты бет</a>
         <a href="questions.html" class="nav-link"><span class="icon">❓</span> Сұрақтар</a>
-        <a href="users.html" class="nav-link"><span class="icon">👥</span> Пайдаланушылар</a>
+        <a href="users.html"     class="nav-link"><span class="icon">👥</span> Пайдаланушылар</a>
+        <a href="security.html"  class="nav-link"><span class="icon">🔒</span> Қауіпсіздік</a>
       </nav>
       <div class="sidebar-bottom">
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;margin-bottom:8px;">
+          <span style="font-size:16px;">👤</span>
+          <span id="adminEmail"
+                style="font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+        </div>
         <button id="logoutBtn" class="logout-btn"><span>🚪</span> Шығу</button>
       </div>
     </aside>
