@@ -190,12 +190,28 @@
 
         <div style="margin-top:16px;background:rgba(107,63,160,0.1);
                     border:1px solid rgba(107,63,160,0.25);border-radius:10px;
-                    padding:14px 16px;font-size:12px;color:var(--muted);line-height:1.8;">
+                    padding:14px 16px;font-size:12px;color:var(--muted);line-height:2;">
           <strong style="color:var(--purple-l);">Баған тәртібі:</strong><br/>
-          <code style="color:var(--cream);">question_text, option_a, option_b, option_c, option_d, correct_answer, difficulty, category_id</code><br/>
-          <strong style="color:var(--purple-l);">correct_answer:</strong> A, B, C немесе D<br/>
+          <code style="color:var(--cream);">question_text, option_a, option_b, option_c, option_d, correct_answer, difficulty, category</code><br/>
+          <strong style="color:var(--purple-l);">correct_answer:</strong> A/B/C/D немесе 1/2/3/4<br/>
           <strong style="color:var(--purple-l);">difficulty:</strong> 1 (жеңіл), 2 (орта), 3 (қиын)<br/>
-          <strong style="color:var(--purple-l);">category_id:</strong> UUID форматында
+          <strong style="color:var(--purple-l);">category:</strong> Категория <em>аты</em> немесе UUID — мысалы: <code style="color:var(--gold);">Батырлар</code>
+        </div>
+
+        <!-- Debug mode + category reference -->
+        <div style="margin-top:12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+            <input type="checkbox" id="debugMode" style="accent-color:var(--gold);transform:scale(1.2);" />
+            <span>🔍 Тексеру режимі (базаға жазбай тексеру)</span>
+          </label>
+          <button class="btn btn-ghost btn-sm" id="showCatsBtn" style="font-size:11px;">
+            📋 Категориялар тізімі
+          </button>
+        </div>
+        <div id="catReferenceBox" style="display:none;margin-top:10px;max-height:140px;overflow-y:auto;
+             background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;">
+          <p style="font-size:11px;color:var(--muted);margin-bottom:6px;">CSV-де осы атауларды қолданыңыз:</p>
+          <div id="catReferenceList" style="font-size:12px;line-height:2;"></div>
         </div>
       </div>
 
@@ -255,9 +271,28 @@
           </div>
         </div>
 
+        <!-- Debug preview (shown in debug mode) -->
+        <div id="csvDebugBox" style="display:none;margin-bottom:16px;
+             background:rgba(232,168,76,0.07);border:1px solid rgba(232,168,76,0.25);
+             border-radius:10px;padding:14px 16px;">
+          <p style="font-size:13px;font-weight:600;color:var(--gold);margin-bottom:8px;">
+            🔍 Тексеру режимі — базаға жіберілетін 1-ші жол:
+          </p>
+          <pre id="csvDebugContent" style="font-size:11px;color:var(--cream);
+               white-space:pre-wrap;word-break:break-all;line-height:1.7;max-height:160px;overflow-y:auto;"></pre>
+        </div>
+
         <!-- Result summary (hidden until done) -->
         <div id="csvResult" style="display:none;margin-bottom:20px;border-radius:10px;
              padding:14px 16px;font-size:14px;font-weight:600;"></div>
+
+        <!-- Insert errors detail -->
+        <div id="csvInsertErrors" style="display:none;margin-bottom:16px;
+             background:rgba(248,113,113,0.06);border:1px solid rgba(248,113,113,0.2);
+             border-radius:10px;padding:14px 16px;max-height:120px;overflow-y:auto;">
+          <p style="font-size:12px;font-weight:600;color:var(--danger);margin-bottom:6px;">Supabase қателері:</p>
+          <ul id="csvInsertErrorList" style="font-size:11px;color:var(--danger);padding-left:14px;line-height:1.9;"></ul>
+        </div>
       </div>
 
       <div class="modal-footer">
@@ -541,21 +576,123 @@
     }
 
     // ════════════════════════════════════════════════
-    // CSV IMPORT
+    // CSV IMPORT — v2 (smart category + format matching)
     // ════════════════════════════════════════════════
-    let csvParsedRows   = [];   // all parsed + validated rows
-    let csvValidRows    = [];   // only valid rows ready for insert
+    let csvParsedRows = [];
+    let csvValidRows  = [];
 
-    const CORRECT_MAP = { A: 0, B: 1, C: 2, D: 3 };
-    const TEMPLATE_CONTENT = `question_text,option_a,option_b,option_c,option_d,correct_answer,difficulty,category_id
-"Абай Құнанбайұлы қай жылы дүниеге келген?","1840","1845","1850","1860","B","2","REPLACE_WITH_CATEGORY_UUID"
-"Қазақ хандығы қай жылы құрылды?","1465","1480","1500","1520","A","2","REPLACE_WITH_CATEGORY_UUID"
-"Алаш партиясын кім негіздеді?","Абай","Шоқан","Әлихан Бөкейхан","Сәкен","C","3","REPLACE_WITH_CATEGORY_UUID"
+    // ── Column header normalizer ──
+    // Maps any reasonable header variation to a canonical key
+    function normalizeHeader(h) {
+      const s = h.trim().toLowerCase().replace(/[\s\-]+/g, '_');
+      const map = {
+        'question_text':'question_text','question':'question_text','сұрақ':'question_text','text':'question_text',
+        'option_a':'option_a','a':'option_a','а':'option_a','answer_a':'option_a','жауап_а':'option_a',
+        'option_b':'option_b','b':'option_b','б':'option_b','answer_b':'option_b',
+        'option_c':'option_c','c':'option_c','в':'option_c','answer_c':'option_c',
+        'option_d':'option_d','d':'option_d','г':'option_d','answer_d':'option_d',
+        'correct_answer':'correct_answer','correct':'correct_answer','answer':'correct_answer',
+        'дұрыс':'correct_answer','дұрыс_жауап':'correct_answer',
+        'difficulty':'difficulty','қиындық':'difficulty','level':'difficulty','деңгей':'difficulty',
+        'category':'category','category_id':'category','category_name':'category',
+        'категория':'category','cat':'category',
+      };
+      return map[s] ?? s;
+    }
+
+    // ── Category resolver: name OR uuid ──
+    function resolveCategory(value) {
+      if (!value) return null;
+      const v = value.trim();
+
+      // 1. Exact UUID match
+      const byId = categories.find(c => c.id === v);
+      if (byId) return { id: byId.id, name: byId.name_kz };
+
+      // 2. Exact name match (kz, then slug)
+      const lower = v.toLowerCase();
+      let found = categories.find(c =>
+        (c.name_kz ?? '').toLowerCase() === lower
+      );
+      if (!found) found = categories.find(c =>
+        (c.slug ?? '').toLowerCase() === lower
+      );
+
+      // 3. Partial / includes match
+      if (!found) found = categories.find(c =>
+        (c.name_kz ?? '').toLowerCase().includes(lower) ||
+        lower.includes((c.name_kz ?? '').toLowerCase())
+      );
+
+      return found ? { id: found.id, name: found.name_kz } : null;
+    }
+
+    // Closest category name suggestions for error messages
+    function suggestCategory(value) {
+      const lower = (value ?? '').toLowerCase();
+      return categories
+        .filter(c => {
+          const n = (c.name_kz ?? '').toLowerCase();
+          // Check if they share at least 3 chars
+          for (let i = 0; i <= n.length - 3; i++) {
+            if (lower.includes(n.slice(i, i + 3))) return true;
+          }
+          return false;
+        })
+        .slice(0, 3)
+        .map(c => c.name_kz);
+    }
+
+    // ── Correct answer parser ──
+    function parseCorrectAnswer(ans, options) {
+      if (!ans) return null;
+      const s = ans.trim().toUpperCase();
+
+      // A/B/C/D
+      const letterMap = { A: 0, B: 1, C: 2, D: 3 };
+      if (letterMap.hasOwnProperty(s)) return letterMap[s];
+
+      // А/Б/В/Г (Kazakh letters)
+      const kkMap = { 'А': 0, 'Б': 1, 'В': 2, 'Г': 3 };
+      if (kkMap.hasOwnProperty(s)) return kkMap[s];
+
+      // 1/2/3/4
+      const num = parseInt(s);
+      if ([1, 2, 3, 4].includes(num)) return num - 1;
+
+      // Full text match against options
+      const idx = options.findIndex(o =>
+        o.trim().toLowerCase() === ans.trim().toLowerCase()
+      );
+      if (idx >= 0) return idx;
+
+      return null;
+    }
+
+    // ── Build template CSV dynamically with real category names ──
+    function buildTemplateContent() {
+      const cat1 = categories[0]?.name_kz ?? 'Категория_аты';
+      const cat2 = categories[1]?.name_kz ?? 'Категория_аты';
+      const cat3 = categories[2]?.name_kz ?? 'Категория_аты';
+      return `question_text,option_a,option_b,option_c,option_d,correct_answer,difficulty,category
+"Абай Құнанбайұлы қай жылы дүниеге келген?","1840","1845","1850","1860","B","2","${cat1}"
+"Қазақ хандығы қай жылы құрылды?","1465","1480","1500","1520","A","2","${cat2}"
+"Алаш партиясын кім негіздеді?","Абай","Шоқан","Әлихан Бөкейхан","Сәкен","C","3","${cat3}"
 `;
+    }
 
     // ── Open / close CSV modal ──
     function openCsvModal() {
       resetCsvModal();
+      // Populate category reference list
+      const listEl = document.getElementById('catReferenceList');
+      if (listEl) {
+        listEl.innerHTML = categories.map(c =>
+          `<span style="display:inline-block;margin-right:12px;color:var(--cream);">
+             <span style="color:var(--gold);">${c.name_kz}</span>
+           </span>`
+        ).join('');
+      }
       document.getElementById('csvModal').classList.add('open');
     }
     function closeCsvModal() {
@@ -571,14 +708,19 @@
       document.getElementById('csvProgressWrap').style.display = 'none';
       document.getElementById('csvResult').style.display = 'none';
       document.getElementById('csvErrors').style.display = 'none';
+      document.getElementById('csvInsertErrors').style.display = 'none';
+      document.getElementById('csvDebugBox').style.display = 'none';
+      document.getElementById('catReferenceBox').style.display = 'none';
       document.getElementById('csvFileInput').value = '';
       document.getElementById('csvImportBtn').disabled = false;
       document.getElementById('csvImportBtn').textContent = '✓ Импорттау';
+      document.getElementById('csvCancelBtn').textContent = 'Жабу';
     }
 
-    // ── Template download ──
+    // ── Template download with real category names ──
     function downloadTemplate() {
-      const blob = new Blob([TEMPLATE_CONTENT], { type: 'text/csv;charset=utf-8;' });
+      const content = buildTemplateContent();
+      const blob = new Blob(['\uFEFF' + content], { type: 'text/csv;charset=utf-8;' });
       const url  = URL.createObjectURL(blob);
       const a    = document.createElement('a');
       a.href = url; a.download = 'questions_template.csv';
@@ -587,70 +729,92 @@
 
     // ── File selected ──
     function handleCsvFile(file) {
-      if (!file || !file.name.endsWith('.csv')) {
+      if (!file) return;
+      if (!file.name.toLowerCase().endsWith('.csv')) {
         showToast('Тек .csv файл таңдаңыз', 'error'); return;
       }
 
       Papa.parse(file, {
         header: true,
-        skipEmptyLines: true,
-        transformHeader: h => h.trim().toLowerCase().replace(/\s+/g,'_'),
-        complete: results => processParsed(results.data, file.name),
-        error: err => showToast('CSV оқу қатесі: ' + err.message, 'error')
+        skipEmptyLines: 'greedy',
+        // Normalize each header using our map
+        transformHeader: h => normalizeHeader(h),
+        complete: results => {
+          console.log('[CSV] Raw headers:', results.meta.fields);
+          console.log('[CSV] First row raw:', results.data[0]);
+          console.log('[CSV] Categories loaded:', categories.map(c => `${c.name_kz} (${c.id})`));
+          processParsed(results.data, file.name);
+        },
+        error: err => showToast('CSV оқу қатесі: ' + err.message, 'error'),
       });
     }
 
-    // ── Validate & preview ──
+    // ── Validate & build valid rows ──
     function processParsed(rows, filename) {
       csvParsedRows = rows;
       const errors  = [];
       csvValidRows  = [];
 
-      // Build a quick category id set for validation
-      const catIds = new Set(categories.map(c => c.id));
-
       rows.forEach((row, idx) => {
         const n = idx + 1;
-        const q      = (row.question_text || '').trim();
-        const optA   = (row.option_a || '').trim();
-        const optB   = (row.option_b || '').trim();
-        const optC   = (row.option_c || '').trim();
-        const optD   = (row.option_d || '').trim();
-        const ans    = (row.correct_answer || '').trim().toUpperCase();
-        const diff   = parseInt(row.difficulty);
-        const catId  = (row.category_id || '').trim();
+
+        // Pull values — support both normalized and original keys
+        const q    = (row.question_text || row.question || row['сұрақ'] || '').trim();
+        const optA = (row.option_a || row.a || row['а'] || '').trim();
+        const optB = (row.option_b || row.b || row['б'] || '').trim();
+        const optC = (row.option_c || row.c || row['в'] || '').trim();
+        const optD = (row.option_d || row.d || row['г'] || '').trim();
+        const ansRaw = (row.correct_answer || row.correct || row['дұрыс'] || '').trim();
+        const diffRaw = (row.difficulty || row['қиындық'] || '').trim();
+        const catRaw  = (row.category || row.category_id || row['категория'] || '').trim();
+
+        const opts   = [optA, optB, optC, optD];
+        const diff   = parseInt(diffRaw);
+        const ansIdx = parseCorrectAnswer(ansRaw, opts);
+        const catRes = resolveCategory(catRaw);
 
         const rowErrors = [];
-        if (!q)                             rowErrors.push('сұрақ мәтіні бос');
-        if (!optA||!optB||!optC||!optD)     rowErrors.push('барлық 4 жауап толтырылмаған');
-        if (!CORRECT_MAP.hasOwnProperty(ans)) rowErrors.push(`correct_answer "${ans}" — A/B/C/D болуы керек`);
-        if (![1,2,3].includes(diff))         rowErrors.push(`difficulty "${row.difficulty}" — 1,2,3 болуы керек`);
-        if (!catId)                           rowErrors.push('category_id бос');
-        else if (!catIds.has(catId))          rowErrors.push(`category_id "${catId}" базада жоқ`);
+
+        if (!q) rowErrors.push('сұрақ мәтіні бос');
+        if (!optA || !optB || !optC || !optD)
+          rowErrors.push(`жауаптар толық емес (A:"${optA}" B:"${optB}" C:"${optC}" D:"${optD}")`);
+        if (ansIdx === null)
+          rowErrors.push(`correct_answer "${ansRaw}" → A/B/C/D немесе 1/2/3/4 болуы керек`);
+        if (![1, 2, 3].includes(diff))
+          rowErrors.push(`difficulty "${diffRaw}" → 1, 2 немесе 3 болуы керек`);
+        if (!catRaw)
+          rowErrors.push('category бос');
+        else if (!catRes) {
+          const suggestions = suggestCategory(catRaw);
+          const hint = suggestions.length ? ` (Мүмкін: ${suggestions.join(', ')})` : '';
+          rowErrors.push(`"${catRaw}" категориясы табылмады${hint}`);
+        }
 
         if (rowErrors.length) {
-          errors.push(`Жол ${n}: ${rowErrors.join('; ')}`);
+          errors.push(`Жол ${n}: ${rowErrors.join(' | ')}`);
         } else {
-          csvValidRows.push({
+          const payload = {
             question_kz:   q,
-            options:       [optA, optB, optC, optD],
-            correct_index: CORRECT_MAP[ans],
+            options:       opts,
+            correct_index: ansIdx,
             difficulty:    diff,
-            category_id:   catId,
+            category_id:   catRes.id,
             points:        diff * 10,
             is_active:     true,
-          });
+          };
+          console.log(`[CSV] Row ${n} → valid:`, payload);
+          csvValidRows.push(payload);
         }
       });
 
-      // Show step 2
+      // ── Switch to step 2 ──
       document.getElementById('csvStep1').style.display = 'none';
-      document.getElementById('csvStep2').style.display  = '';
-      document.getElementById('csvFileName').textContent  = filename;
-      document.getElementById('csvRowCount').textContent  =
-        `${rows.length} жол, ${csvValidRows.length} жарамды, ${errors.length} қате`;
+      document.getElementById('csvStep2').style.display = '';
+      document.getElementById('csvFileName').textContent = filename;
+      document.getElementById('csvRowCount').textContent =
+        `${rows.length} жол — ${csvValidRows.length} жарамды, ${errors.length} қате`;
 
-      // Render errors
+      // Validation errors
       const errBox  = document.getElementById('csvErrors');
       const errList = document.getElementById('csvErrorList');
       if (errors.length) {
@@ -660,64 +824,112 @@
         errBox.style.display = 'none';
       }
 
-      // Render preview (first 5 valid source rows)
+      // ── Preview table (first 5 rows) ──
       const preview = rows.slice(0, 5);
-      const validSet = new Set(csvValidRows.map(r => r.question_kz));
-      document.getElementById('csvPreviewBody').innerHTML = preview.map(row => {
-        const q   = (row.question_text || '').trim();
-        const ok  = validSet.has(q);
-        const statusCell = ok
-          ? `<td style="color:var(--success);text-align:center;">✓</td>`
-          : `<td style="color:var(--danger);text-align:center;">✗</td>`;
-        return `<tr style="${ok ? '' : 'opacity:0.5;'}">
-          <td class="truncate" style="max-width:160px;padding:8px 12px;"
-              title="${escapeHtml(q)}">${escapeHtml(q)}</td>
-          <td style="padding:8px 12px;">${escapeHtml(row.option_a||'')}</td>
-          <td style="padding:8px 12px;">${escapeHtml(row.option_b||'')}</td>
-          <td style="padding:8px 12px;">${escapeHtml(row.option_c||'')}</td>
-          <td style="padding:8px 12px;">${escapeHtml(row.option_d||'')}</td>
-          <td style="padding:8px 12px;text-align:center;color:var(--gold);">${escapeHtml(row.correct_answer||'')}</td>
-          <td style="padding:8px 12px;text-align:center;">${row.difficulty||''}</td>
+      document.getElementById('csvPreviewBody').innerHTML = preview.map((row, i) => {
+        const q   = (row.question_text || row.question || '').trim();
+        const isValid = csvValidRows.some(r => r.question_kz === q);
+        const statusCell = isValid
+          ? `<td style="color:var(--success);text-align:center;padding:8px 12px;">✓</td>`
+          : `<td style="color:var(--danger);text-align:center;padding:8px 12px;">✗</td>`;
+        const ansRaw = (row.correct_answer || row.correct || '').trim();
+        const catRaw = (row.category || row.category_id || '').trim();
+        const catRes = resolveCategory(catRaw);
+        return `<tr style="${isValid ? '' : 'opacity:0.5;'}">
+          <td class="truncate" style="max-width:150px;padding:8px 12px;"
+              title="${escapeHtml(q)}">${escapeHtml(q || '(бос)')}</td>
+          <td style="padding:8px 12px;">${escapeHtml(row.option_a||row.a||'')}</td>
+          <td style="padding:8px 12px;">${escapeHtml(row.option_b||row.b||'')}</td>
+          <td style="padding:8px 12px;">${escapeHtml(row.option_c||row.c||'')}</td>
+          <td style="padding:8px 12px;">${escapeHtml(row.option_d||row.d||'')}</td>
+          <td style="padding:8px 12px;text-align:center;color:var(--gold);">${escapeHtml(ansRaw)}</td>
+          <td style="padding:8px 12px;text-align:center;">${escapeHtml(row.difficulty||'')}</td>
           ${statusCell}
         </tr>`;
       }).join('');
 
-      // Show import button only if there are valid rows
+      // ── Debug mode preview ──
+      const debugMode = document.getElementById('debugMode').checked;
+      const debugBox  = document.getElementById('csvDebugBox');
+      if (debugMode && csvValidRows.length) {
+        document.getElementById('csvDebugContent').textContent =
+          JSON.stringify(csvValidRows[0], null, 2);
+        debugBox.style.display = '';
+      } else {
+        debugBox.style.display = 'none';
+      }
+
+      // Import button label
       const importBtn = document.getElementById('csvImportBtn');
-      importBtn.style.display = csvValidRows.length ? '' : 'none';
+      if (csvValidRows.length) {
+        importBtn.style.display = '';
+        importBtn.textContent   = debugMode
+          ? `🔍 Тексеру (${csvValidRows.length} жол)`
+          : `✓ Импорттау (${csvValidRows.length} жол)`;
+      } else {
+        importBtn.style.display = 'none';
+      }
     }
 
-    // ── Batch import ──
+    // ── Import (or dry-run in debug mode) ──
     async function doImport() {
       if (!csvValidRows.length) return;
 
+      const debugMode = document.getElementById('debugMode').checked;
       const btn = document.getElementById('csvImportBtn');
       btn.disabled = true;
+
+      if (debugMode) {
+        // ── DRY RUN ──
+        const debugEl = document.getElementById('csvDebugBox');
+        document.getElementById('csvDebugContent').textContent =
+          '// Базаға жазылмайды — тексеру ғана\n\n' +
+          csvValidRows.map((r, i) => `// Жол ${i+1}\n${JSON.stringify(r, null, 2)}`).join('\n\n');
+        debugEl.style.display = '';
+
+        const result = document.getElementById('csvResult');
+        result.style.display  = '';
+        result.style.background = 'rgba(232,168,76,0.1)';
+        result.style.border     = '1px solid rgba(232,168,76,0.3)';
+        result.style.color      = 'var(--gold)';
+        result.textContent = `🔍 Тексеру режимі: ${csvValidRows.length} жол жарамды. Консольде толық мәліметті қараңыз.`;
+
+        btn.disabled    = false;
+        btn.textContent = '🔍 Тексеру (қайта)';
+        return;
+      }
+
+      // ── REAL INSERT — row by row for precise error capture ──
       btn.textContent = 'Импорттауда...';
 
       const progressWrap = document.getElementById('csvProgressWrap');
       const progressBar  = document.getElementById('csvProgressBar');
       const progressLbl  = document.getElementById('csvProgressLabel');
       progressWrap.style.display = '';
+      document.getElementById('csvInsertErrors').style.display = 'none';
 
-      const BATCH = 50;
-      let inserted = 0;
-      let failed   = 0;
+      let inserted    = 0;
+      let failed      = 0;
+      const insertErrors = [];
 
-      for (let i = 0; i < csvValidRows.length; i += BATCH) {
-        const chunk = csvValidRows.slice(i, i + BATCH);
-        const { error } = await db.from('questions').insert(chunk);
+      for (let i = 0; i < csvValidRows.length; i++) {
+        const row = csvValidRows[i];
+        const { error } = await db.from('questions').insert(row);
+
         if (error) {
-          failed += chunk.length;
+          failed++;
+          console.error(`[CSV] Insert failed row ${i+1}:`, error, '\nRow:', row);
+          insertErrors.push(`Жол ${i+1} ("${row.question_kz.slice(0,30)}…"): ${error.message}`);
         } else {
-          inserted += chunk.length;
+          inserted++;
         }
-        const pct = Math.round(((i + chunk.length) / csvValidRows.length) * 100);
+
+        const pct = Math.round(((i + 1) / csvValidRows.length) * 100);
         progressBar.style.width = pct + '%';
-        progressLbl.textContent  = pct + '%';
+        progressLbl.textContent = pct + '%';
       }
 
-      // Show result
+      // ── Result ──
       const result = document.getElementById('csvResult');
       result.style.display = '';
       if (failed === 0) {
@@ -729,7 +941,15 @@
         result.style.background = 'rgba(232,168,76,0.1)';
         result.style.border     = '1px solid rgba(232,168,76,0.3)';
         result.style.color      = 'var(--gold)';
-        result.textContent      = `${inserted} сұрақ қосылды, ${failed} қате болды`;
+        result.textContent      = `${inserted} сұрақ қосылды | ${failed} қате`;
+      }
+
+      // Show Supabase errors detail
+      if (insertErrors.length) {
+        const errBox  = document.getElementById('csvInsertErrors');
+        const errList = document.getElementById('csvInsertErrorList');
+        errList.innerHTML = insertErrors.slice(0, 10).map(e => `<li>${escapeHtml(e)}</li>`).join('');
+        errBox.style.display = '';
       }
 
       btn.textContent = '✓ Дайын';
@@ -745,6 +965,12 @@
       document.getElementById('csvImportBtn').addEventListener('click', doImport);
       document.getElementById('templateBtn').addEventListener('click', downloadTemplate);
       document.getElementById('csvResetBtn').addEventListener('click', resetCsvModal);
+
+      // Category reference toggle
+      document.getElementById('showCatsBtn').addEventListener('click', () => {
+        const box = document.getElementById('catReferenceBox');
+        box.style.display = box.style.display === 'none' ? '' : 'none';
+      });
 
       // File input change
       document.getElementById('csvFileInput').addEventListener('change', e => {
